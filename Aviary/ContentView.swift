@@ -29,27 +29,25 @@ struct RootView: View {
     @State private var showMessages: Bool = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Group {
-                switch tab {
-                case .home:
-                    HomeScreen(
-                        onOpenAcceptPing: { showAcceptPing = true },
-                        onOpenGigDetail: { showGigDetail = true }
-                    )
-                case .gigs:
-                    GigListScreen(onOpenGig: { showGigDetail = true })
-                case .fly:
-                    FlyHubScreen(onTakeoff: { showInFlight = true })
-                case .earn:
-                    EarningsScreen()
-                case .me:
-                    ProfileScreen(themeManager: themeManager,
-                                  onOpenMessages: { showMessages = true })
-                }
+        Group {
+            switch tab {
+            case .home:
+                HomeScreen(
+                    onOpenAcceptPing: { showAcceptPing = true },
+                    onOpenGigDetail: { showGigDetail = true }
+                )
+            case .gigs:
+                GigListScreen(onOpenGig: { showGigDetail = true })
+            case .fly:
+                FlyHubScreen(onTakeoff: { showInFlight = true })
+            case .earn:
+                EarningsScreen()
+            case .me:
+                ProfileScreen(themeManager: themeManager,
+                              onOpenMessages: { showMessages = true })
             }
-            .padding(.bottom, 84)
-
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             AviaryTabBar(selection: $tab)
         }
         .ignoresSafeArea(.keyboard)

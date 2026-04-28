@@ -262,11 +262,12 @@ struct AviaryTabBar: View {
             }
         }
         .padding(.top, 8)
-        .padding(.bottom, 24)
+        .padding(.bottom, 6)
         .background(
             t.surface.opacity(0.92)
                 .background(.ultraThinMaterial)
                 .overlay(Rectangle().fill(t.line).frame(height: 1), alignment: .top)
+                .ignoresSafeArea(edges: .bottom)
         )
     }
 }
