@@ -575,49 +575,85 @@ struct MessagesScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var demoStore: DemoModeStore
+    let profile: UserProfile?
+    let showsCloseButton: Bool
+
+    @State private var conversations: [AviaryConversation] = []
+    @State private var selectedConversation: AviaryConversation?
+    @State private var messages: [AviaryMessage] = []
+    @State private var isLoadingConversations: Bool = false
+    @State private var isLoadingMessages: Bool = false
+    @State private var isSending: Bool = false
+    @State private var errorMessage: String?
+    @State private var draftMessage: String = ""
 
     var body: some View {
         ZStack {
             t.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 if demoStore.isOn {
-                    header
-
-                    pinnedContext
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
-
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
-                            bubble(text: "Hey Jordan — gate code is 4471. Owner asked for a sunset shot too if light's good.",
-                                   time: "2:14 PM", incoming: true)
-                            bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
-                                   time: "2:16 PM ✓✓", incoming: false)
-                            bubble(text: "Done. Sending the add-on now 👍",
-                                   time: nil, incoming: true)
-                            typingBubble
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
-                        .padding(.bottom, 12)
-                    }
-
-                    composer
+                    demoThread
+                } else if let selectedConversation {
+                    thread(for: selectedConversation)
                 } else {
-                    emptyHeader
-                    Spacer()
-                    emptyState
-                        .padding(.horizontal, 24)
-                    Spacer()
+                    conversationList
+                }
+            }
+        }
+        .task(id: "\(profile?.id.uuidString ?? "none")-\(demoStore.isOn)") {
+            await loadConversations()
+        }
+    }
+
+    private var conversationList: some View {
+        VStack(spacing: 0) {
+            listHeader
+            if isLoadingConversations {
+                Spacer()
+                FeatureStateCard(icon: "message",
+                                 title: "Loading conversations",
+                                 message: "Checking active job threads.")
+                    .padding(.horizontal, 24)
+                Spacer()
+            } else if let errorMessage {
+                Spacer()
+                FeatureStateCard(icon: "cloud",
+                                 title: "Couldn't load messages",
+                                 message: errorMessage,
+                                 buttonTitle: "Try again",
+                                 action: { Task { await loadConversations() } })
+                    .padding(.horizontal, 24)
+                Spacer()
+            } else if conversations.isEmpty {
+                Spacer()
+                FeatureStateCard(icon: "message",
+                                 title: "No conversations yet",
+                                 message: "Threads appear here once a gig has a customer and pilot assigned.")
+                    .padding(.horizontal, 24)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(conversations) { conversation in
+                            Button { select(conversation) } label: {
+                                conversationRow(conversation)
+                            }
+                            .buttonStyle(PressableButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
                 }
             }
         }
     }
 
-    private var emptyHeader: some View {
+    private var listHeader: some View {
         HStack(spacing: 12) {
-            Button { dismiss() } label: {
-                AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+            if showsCloseButton {
+                Button { dismiss() } label: {
+                    AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+                }
             }
             Text("Messages")
                 .font(AviaryFont.body(16, weight: .semibold))
@@ -629,31 +665,65 @@ struct MessagesScreen: View {
         .padding(.bottom, 14)
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            AviaryIcon(name: "message", size: 28, color: t.ink3)
-            Text("No conversations yet")
-                .font(AviaryFont.body(17, weight: .semibold))
-                .foregroundStyle(t.ink)
-            Text("Once you accept a gig, your client thread will appear here.")
-                .font(AviaryFont.body(13))
-                .foregroundStyle(t.ink3)
-                .lineSpacing(2)
-                .multilineTextAlignment(.center)
+    private func thread(for conversation: AviaryConversation) -> some View {
+        VStack(spacing: 0) {
+            threadHeader(conversation)
+            pinnedContext(conversation)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+
+            ScrollView {
+                if isLoadingMessages {
+                    FeatureStateCard(icon: "message",
+                                     title: "Loading thread",
+                                     message: "Fetching the latest messages.")
+                        .padding(.horizontal, 8)
+                        .padding(.top, 12)
+                } else if messages.isEmpty {
+                    FeatureStateCard(icon: "message",
+                                     title: "No messages yet",
+                                     message: "Send the first note about this job.")
+                        .padding(.horizontal, 8)
+                        .padding(.top, 12)
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(messages) { message in
+                            bubble(text: message.body,
+                                   time: message.timeText,
+                                   incoming: message.isIncoming(for: profile))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
+                }
+            }
+
+            liveComposer
         }
     }
 
-    private var header: some View {
+    private func threadHeader(_ conversation: AviaryConversation) -> some View {
         HStack(spacing: 12) {
-            Button { dismiss() } label: {
-                AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+            if conversations.count > 1 || showsCloseButton {
+                Button {
+                    if conversations.count > 1 {
+                        selectedConversation = nil
+                        messages = []
+                    } else {
+                        dismiss()
+                    }
+                } label: {
+                    AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+                }
             }
-            Avatar(size: 36, initials: "MR", background: t.accentSoft)
+            Avatar(size: 36, initials: initials(for: conversation.displayTitle), background: t.accentSoft)
             VStack(alignment: .leading, spacing: 0) {
-                Text("Marin Realty")
+                Text(conversation.displayTitle)
                     .font(AviaryFont.body(15, weight: .semibold))
                     .foregroundStyle(t.ink)
-                Text("● Online")
+                    .lineLimit(1)
+                Text(conversation.lastMessageTimeText.isEmpty ? "Job thread" : conversation.lastMessageTimeText)
                     .font(AviaryFont.body(11))
                     .foregroundStyle(t.good)
             }
@@ -665,7 +735,101 @@ struct MessagesScreen: View {
         .padding(.bottom, 14)
     }
 
-    private var pinnedContext: some View {
+    private func conversationRow(_ conversation: AviaryConversation) -> some View {
+        AviaryCard(padding: 14, shadowed: true) {
+            HStack(spacing: 12) {
+                Avatar(size: 42, initials: initials(for: conversation.displayTitle), background: t.accentSoft)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(conversation.displayTitle)
+                            .font(AviaryFont.body(15, weight: .semibold))
+                            .foregroundStyle(t.ink)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(conversation.lastMessageTimeText)
+                            .font(AviaryFont.body(11))
+                            .foregroundStyle(t.ink4)
+                    }
+                    Text(conversation.displaySubtitle)
+                        .font(AviaryFont.body(12))
+                        .foregroundStyle(t.ink3)
+                        .lineLimit(1)
+                    Text(conversation.previewText)
+                        .font(AviaryFont.body(13))
+                        .foregroundStyle(t.ink2)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private func pinnedContext(_ conversation: AviaryConversation) -> some View {
+        HStack(spacing: 10) {
+            AviaryIcon(name: "pin", size: 16, color: t.accent)
+            Text(conversation.displaySubtitle)
+                .font(AviaryFont.body(12))
+                .foregroundStyle(t.ink2)
+                .lineLimit(1)
+            Spacer()
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12).fill(t.accentSoft)
+        )
+    }
+
+    private var demoThread: some View {
+        VStack(spacing: 0) {
+            demoHeader
+
+            demoPinnedContext
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    bubble(text: "Hey Jordan — gate code is 4471. Owner asked for a sunset shot too if light's good.",
+                           time: "2:14 PM", incoming: true)
+                    bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
+                           time: "2:16 PM ✓✓", incoming: false)
+                    bubble(text: "Done. Sending the add-on now.",
+                           time: nil, incoming: true)
+                    typingBubble
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
+            }
+
+            demoComposer
+        }
+    }
+
+    private var demoHeader: some View {
+        HStack(spacing: 12) {
+            if showsCloseButton {
+                Button { dismiss() } label: {
+                    AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+                }
+            }
+            Avatar(size: 36, initials: "MR", background: t.accentSoft)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Marin Realty")
+                    .font(AviaryFont.body(15, weight: .semibold))
+                    .foregroundStyle(t.ink)
+                Text("Online")
+                    .font(AviaryFont.body(11))
+                    .foregroundStyle(t.good)
+            }
+            Spacer()
+            AviaryIcon(name: "phone", size: 20, color: t.ink)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+    }
+
+    private var demoPinnedContext: some View {
         HStack(spacing: 10) {
             AviaryIcon(name: "pin", size: 16, color: t.accent)
             (Text("Real estate · 1247 Vine St · ").foregroundColor(t.ink2)
@@ -712,7 +876,7 @@ struct MessagesScreen: View {
 
     private var typingBubble: some View {
         HStack {
-            Text("● ● ●")
+            Text("...")
                 .font(AviaryFont.body(12))
                 .foregroundStyle(t.ink3)
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -728,11 +892,39 @@ struct MessagesScreen: View {
         }
     }
 
-    private var composer: some View {
+    private var liveComposer: some View {
+        HStack(spacing: 10) {
+            AviaryIcon(name: "plus", size: 22, color: t.ink3)
+            TextField("Message...", text: $draftMessage)
+                .font(AviaryFont.body(14))
+                .foregroundStyle(t.ink)
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(Capsule().fill(t.surface2))
+            Button { sendMessage() } label: {
+                ZStack {
+                    Circle().fill(canSend ? t.accent : t.surface2)
+                    AviaryIcon(name: "arrow-right", size: 18, color: canSend ? t.accentInk : t.ink4)
+                }
+                .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 20)
+        .background(
+            t.surface
+                .overlay(Rectangle().fill(t.line).frame(height: 1), alignment: .top)
+                .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    private var demoComposer: some View {
         HStack(spacing: 10) {
             AviaryIcon(name: "plus", size: 22, color: t.ink3)
             HStack {
-                Text("Message…")
+                Text("Message...")
                     .font(AviaryFont.body(14))
                     .foregroundStyle(t.ink4)
                 Spacer()
@@ -754,14 +946,100 @@ struct MessagesScreen: View {
                 .ignoresSafeArea(edges: .bottom)
         )
     }
+
+    private var canSend: Bool {
+        selectedConversation != nil &&
+        !draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !isSending
+    }
+
+    private func loadConversations() async {
+        guard !demoStore.isOn, let profile else {
+            conversations = []
+            selectedConversation = nil
+            messages = []
+            isLoadingConversations = false
+            errorMessage = nil
+            return
+        }
+        isLoadingConversations = true
+        errorMessage = nil
+        do {
+            conversations = try await AviaryDataService.shared.conversations(for: profile)
+            if conversations.count == 1, let only = conversations.first {
+                selectedConversation = only
+                await loadMessages(for: only)
+            } else if let selectedConversation,
+                      !conversations.contains(where: { $0.id == selectedConversation.id }) {
+                self.selectedConversation = nil
+                messages = []
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoadingConversations = false
+    }
+
+    private func select(_ conversation: AviaryConversation) {
+        selectedConversation = conversation
+        Task { await loadMessages(for: conversation) }
+    }
+
+    private func loadMessages(for conversation: AviaryConversation) async {
+        isLoadingMessages = true
+        do {
+            messages = try await AviaryDataService.shared.messages(for: conversation.id)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoadingMessages = false
+    }
+
+    private func sendMessage() {
+        guard let profile, let selectedConversation else { return }
+        let body = draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        isSending = true
+        errorMessage = nil
+        Task {
+            do {
+                let message = try await AviaryDataService.shared.sendMessage(
+                    body: body,
+                    conversationID: selectedConversation.id,
+                    senderID: profile.id
+                )
+                await MainActor.run {
+                    messages.append(message)
+                    draftMessage = ""
+                    isSending = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isSending = false
+                }
+            }
+        }
+    }
+
+    private func initials(for name: String) -> String {
+        let chars = name
+            .split(separator: " ")
+            .compactMap(\.first)
+            .prefix(2)
+        return chars.isEmpty ? "AV" : String(chars).uppercased()
+    }
 }
 
 // MARK: - Client request a flight
 
 struct ClientRequestScreen: View {
     @Environment(\.theme) private var t
-    @Environment(\.dismiss) private var dismiss
+    let profile: UserProfile
+    var onPosted: (AviaryJob) -> Void = { _ in }
     @State private var typeIdx: Int = 0
+    @State private var isPosting: Bool = false
+    @State private var errorMessage: String?
 
     private let types: [(label: String, icon: String)] = [
         ("Real estate", "camera"), ("Inspection", "cert"),
@@ -818,11 +1096,22 @@ struct ClientRequestScreen: View {
                                     .foregroundStyle(t.ink)
                             }
                             Spacer()
-                            PrimaryButton(title: "Post gig",
+                            PrimaryButton(title: isPosting ? "Posting..." : "Post gig",
                                           systemTrailing: "arrow.right",
-                                          fullWidth: false) { dismiss() }
+                                          fullWidth: false,
+                                          enabled: !isPosting) {
+                                postGig()
+                            }
                         }
                         .padding(.vertical, 14)
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(AviaryFont.body(12))
+                                .foregroundStyle(t.warn)
+                                .lineSpacing(2)
+                                .padding(.top, 4)
+                        }
                     }
                     .padding(.horizontal, 22)
                     .padding(.top, 20)
@@ -838,6 +1127,38 @@ struct ClientRequestScreen: View {
                     .shadow(color: .black.opacity(0.08), radius: 24, y: -8)
                 )
                 .padding(.top, -28)
+            }
+        }
+    }
+
+    private func postGig() {
+        guard !isPosting else { return }
+        isPosting = true
+        errorMessage = nil
+        let type = types[typeIdx]
+        let draft = AviaryDataService.JobDraft(
+            jobType: type.label.lowercased().replacingOccurrences(of: " ", with: "_"),
+            title: type.label == "Real estate" ? "Real estate listing" : "\(type.label) request",
+            address: "1247 Vine St, Berkeley",
+            clientName: profile.fullName ?? profile.email,
+            distanceMiles: 1.2,
+            payoutCents: 35000,
+            scheduledAt: Calendar.current.date(byAdding: .hour, value: 3, to: Date()),
+            durationMinutes: 45,
+            deliverables: ["12 photos", "60-sec flyover", "Edited delivery set"]
+        )
+        Task {
+            do {
+                let job = try await AviaryDataService.shared.createJob(draft, customerID: profile.id)
+                await MainActor.run {
+                    isPosting = false
+                    onPosted(job)
+                }
+            } catch {
+                await MainActor.run {
+                    isPosting = false
+                    errorMessage = error.localizedDescription
+                }
             }
         }
     }

@@ -5,11 +5,15 @@ import SwiftUI
 struct GigListScreen: View {
     @Environment(\.theme) private var t
     @EnvironmentObject private var demoStore: DemoModeStore
+    let profile: UserProfile
     @State private var sortIdx: Int = 0
-    var onOpenGig: () -> Void = {}
+    @State private var jobs: [AviaryJob] = []
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    var onOpenGig: (AviaryJob?) -> Void = { _ in }
 
     private let sorts = ["Best match", "Highest pay", "Closest", "Soonest"]
-    private let gigs: [GigRow] = [
+    private let demoGigs: [GigRow] = [
         .init(title: "Construction site progress", addr: "500 Folsom St", dist: "0.8 mi",
               price: "$485", time: "Tomorrow · 9:00am · 90 min", icon: "briefcase", color: nil),
         .init(title: "Roof inspection — duplex", addr: "22 Hillside Ave", dist: "2.4 mi",
@@ -26,7 +30,7 @@ struct GigListScreen: View {
         ZStack {
             t.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                PageHeader(title: "Gigs", subtitle: demoStore.isOn ? "14 within 10 mi" : "0 within 10 mi") {
+                PageHeader(title: "Gigs", subtitle: subtitle) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12).fill(t.surface2)
                             .frame(width: 40, height: 40)
@@ -58,41 +62,119 @@ struct GigListScreen: View {
                 }
 
                 ScrollView {
-                    if demoStore.isOn {
-                        LazyVStack(spacing: 10) {
-                            ForEach(gigs) { gig in
-                                Button { onOpenGig() } label: {
-                                    gigCard(gig)
-                                }
-                                .buttonStyle(PressableButtonStyle())
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 24)
-                    } else {
-                        emptyState
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 24)
-                    }
+                    content
                 }
+            }
+        }
+        .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
+            await loadJobs()
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if demoStore.isOn {
+            LazyVStack(spacing: 10) {
+                ForEach(sortedDemoGigs) { gig in
+                    Button { onOpenGig(nil) } label: {
+                        gigCard(gig)
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+        } else if isLoading {
+            FeatureStateCard(icon: "compass",
+                             title: "Loading nearby gigs",
+                             message: "Checking open customer requests that match your service area.")
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
+        } else if let errorMessage {
+            FeatureStateCard(icon: "cloud",
+                             title: "Couldn't load gigs",
+                             message: errorMessage,
+                             buttonTitle: "Try again",
+                             action: { Task { await loadJobs() } })
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
+        } else if sortedJobs.isEmpty {
+            emptyState
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
+        } else {
+            LazyVStack(spacing: 10) {
+                ForEach(sortedJobs) { job in
+                    Button { onOpenGig(job) } label: {
+                        gigCard(job)
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private var subtitle: String {
+        if demoStore.isOn { return "14 within 10 mi" }
+        if isLoading { return "Loading nearby requests" }
+        if jobs.isEmpty { return "0 open requests" }
+        return "\(jobs.count) open request\(jobs.count == 1 ? "" : "s")"
+    }
+
+    private var sortedJobs: [AviaryJob] {
+        switch sortIdx {
+        case 1:
+            return jobs.sorted { ($0.payoutCents ?? 0) > ($1.payoutCents ?? 0) }
+        case 2:
+            return jobs.sorted { ($0.distanceMiles ?? .greatestFiniteMagnitude) < ($1.distanceMiles ?? .greatestFiniteMagnitude) }
+        case 3:
+            return jobs.sorted { $0.sortDate < $1.sortDate }
+        default:
+            return jobs.sorted { lhs, rhs in
+                let lhsPayout = lhs.payoutCents ?? 0
+                let rhsPayout = rhs.payoutCents ?? 0
+                if lhsPayout != rhsPayout { return lhsPayout > rhsPayout }
+                return (lhs.distanceMiles ?? 999) < (rhs.distanceMiles ?? 999)
             }
         }
     }
 
-    private var emptyState: some View {
-        AviaryCard(padding: 22) {
-            VStack(alignment: .leading, spacing: 10) {
-                AviaryIcon(name: "compass", size: 24, color: t.ink3)
-                Text("No gigs nearby right now")
-                    .font(AviaryFont.body(17, weight: .semibold))
-                    .foregroundStyle(t.ink)
-                Text("Check back later or expand your search radius. We'll send a push when something matches.")
-                    .font(AviaryFont.body(13))
-                    .foregroundStyle(t.ink3)
-                    .lineSpacing(2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private var sortedDemoGigs: [GigRow] {
+        switch sortIdx {
+        case 1:
+            return demoGigs.sorted { $0.priceValue > $1.priceValue }
+        case 2:
+            return demoGigs.sorted { $0.distanceValue < $1.distanceValue }
+        case 3:
+            return Array(demoGigs.reversed())
+        default:
+            return demoGigs
         }
+    }
+
+    private func loadJobs() async {
+        guard !demoStore.isOn else {
+            jobs = []
+            isLoading = false
+            errorMessage = nil
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        do {
+            jobs = try await AviaryDataService.shared.availableGigs()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private var emptyState: some View {
+        FeatureStateCard(icon: "compass",
+                         title: "No gigs nearby right now",
+                         message: "Check back later or expand your search radius. We'll send a push when something matches.")
     }
 
     private func gigCard(_ g: GigRow) -> some View {
@@ -126,6 +208,47 @@ struct GigListScreen: View {
         }
     }
 
+    private func gigCard(_ job: AviaryJob) -> some View {
+        AviaryCard(padding: 14, shadowed: true) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(t.surface2)
+                    AviaryIcon(name: icon(for: job), size: 22, stroke: 2, color: t.accent)
+                }
+                .frame(width: 48, height: 48)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(job.displayTitle)
+                            .font(AviaryFont.body(15, weight: .semibold))
+                            .foregroundStyle(t.ink)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(job.payoutText)
+                            .font(AviaryFont.mono(16, weight: .semibold))
+                            .foregroundStyle(t.ink)
+                    }
+                    Text("\(job.displayAddress) · \(job.distanceText)")
+                        .font(AviaryFont.body(13))
+                        .foregroundStyle(t.ink3)
+                        .lineLimit(1)
+                    Text("\(job.scheduledText) · \(job.durationText)")
+                        .font(AviaryFont.body(12))
+                        .foregroundStyle(t.ink4)
+                        .padding(.top, 4)
+                }
+            }
+        }
+    }
+
+    private func icon(for job: AviaryJob) -> String {
+        switch job.jobType?.lowercased() {
+        case "inspection": return "cert"
+        case "event": return "star"
+        case "mapping": return "altitude"
+        default: return "camera"
+        }
+    }
+
     struct GigRow: Identifiable {
         let id = UUID()
         var title: String
@@ -135,6 +258,14 @@ struct GigListScreen: View {
         var time: String
         var icon: String
         var color: GigColor?
+
+        var priceValue: Int {
+            Int(price.filter(\.isNumber)) ?? 0
+        }
+
+        var distanceValue: Double {
+            Double(dist.replacingOccurrences(of: " mi", with: "")) ?? .greatestFiniteMagnitude
+        }
     }
     enum GigColor {
         case good
@@ -298,6 +429,10 @@ struct MapHomeScreen: View {
 struct GigDetailScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    let job: AviaryJob?
+    let pilotProfile: UserProfile?
+    @State private var isAccepting: Bool = false
+    @State private var errorMessage: String?
     var onAccept: () -> Void = {}
 
     var body: some View {
@@ -306,7 +441,7 @@ struct GigDetailScreen: View {
 
             VStack(spacing: 0) {
                 ZStack(alignment: .top) {
-                    MapBackground(pins: [.init(x: 195, y: 150, label: "$340", pulse: true)])
+                    MapBackground(pins: [.init(x: 195, y: 150, label: job?.payoutText ?? "$340", pulse: true)])
                         .frame(height: 260)
                     HStack {
                         circleBtn(icon: "arrow-left") { dismiss() }
@@ -340,18 +475,18 @@ struct GigDetailScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Chip(text: "★ Premium gig", style: .accent)
-                    Text("Real estate aerials")
+                    Chip(text: job?.displayType ?? "Premium gig", style: .accent)
+                    Text(job?.displayTitle ?? "Real estate aerials")
                         .font(AviaryFont.display(22, weight: .bold))
                         .tracking(-0.02 * 22)
                         .foregroundStyle(t.ink)
-                    Text("1247 Vine St, Berkeley · 1.2 mi")
+                    Text("\(job?.displayAddress ?? "1247 Vine St, Berkeley") · \(job?.distanceText ?? "1.2 mi")")
                         .font(AviaryFont.body(13))
                         .foregroundStyle(t.ink3)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text("$340")
+                    Text(job?.payoutText ?? "$340")
                         .font(AviaryFont.mono(28, weight: .semibold))
                         .foregroundStyle(t.accent)
                     Text("est. payout")
@@ -362,8 +497,8 @@ struct GigDetailScreen: View {
             .padding(.bottom, 18)
 
             HStack(spacing: 8) {
-                stat(label: "Duration", value: "~45 min", color: t.ink)
-                stat(label: "Start", value: "3:30 PM", color: t.ink)
+                stat(label: "Duration", value: job?.durationText ?? "~45 min", color: t.ink)
+                stat(label: "Start", value: job?.scheduledText ?? "3:30 PM", color: t.ink)
                 stat(label: "Airspace", value: "Class G ✓", color: t.good)
             }
             .padding(.bottom, 18)
@@ -371,8 +506,8 @@ struct GigDetailScreen: View {
             SectionTitle(text: "Deliverables")
                 .padding(.bottom, 4)
 
-            ForEach(deliverables.indices, id: \.self) { i in
-                let d = deliverables[i]
+            ForEach(displayDeliverables.indices, id: \.self) { i in
+                let d = displayDeliverables[i]
                 HStack(spacing: 12) {
                     AviaryIcon(name: d.icon, size: 18, color: t.ink3)
                     Text(d.label)
@@ -390,12 +525,12 @@ struct GigDetailScreen: View {
             .padding(.bottom, 6)
 
             HStack(spacing: 10) {
-                Avatar(size: 36, initials: "MR", background: t.accentSoft)
+                Avatar(size: 36, initials: initials(for: job?.displayClient ?? "MR"), background: t.accentSoft)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Marin Realty Co.")
+                    Text(job?.displayClient ?? "Marin Realty Co.")
                         .font(AviaryFont.body(14, weight: .semibold))
                         .foregroundStyle(t.ink)
-                    Text("★ 4.9 · 28 gigs posted")
+                    Text(job == nil ? "★ 4.9 · 28 gigs posted" : "\(job?.statusLabel ?? "Open") · customer request")
                         .font(AviaryFont.body(12))
                         .foregroundStyle(t.ink3)
                 }
@@ -408,22 +543,72 @@ struct GigDetailScreen: View {
             }
             .padding(.top, 12)
 
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(AviaryFont.body(12))
+                    .foregroundStyle(t.warn)
+                    .padding(.top, 14)
+            }
+
             HStack(spacing: 10) {
                 SecondaryButton(title: "Save")
                     .frame(maxWidth: 110)
-                PrimaryButton(title: "Accept gig", systemTrailing: "arrow.right",
-                              action: onAccept)
+                PrimaryButton(title: isAccepting ? "Accepting..." : "Accept gig",
+                              systemTrailing: "arrow.right",
+                              enabled: !isAccepting,
+                              action: acceptGig)
             }
             .padding(.top, 20)
         }
     }
 
     private struct Deliverable { var label: String; var icon: String }
-    private let deliverables: [Deliverable] = [
-        .init(label: "12 exterior photos · 4K", icon: "camera"),
-        .init(label: "60-sec cinematic flyover", icon: "play"),
-        .init(label: "Twilight shot (post-sunset)", icon: "sun"),
-    ]
+
+    private var displayDeliverables: [Deliverable] {
+        let labels = job?.displayDeliverables ?? [
+            "12 exterior photos · 4K",
+            "60-sec cinematic flyover",
+            "Twilight shot (post-sunset)"
+        ]
+        return labels.enumerated().map { idx, label in
+            switch idx {
+            case 1: return .init(label: label, icon: "play")
+            case 2: return .init(label: label, icon: "sun")
+            default: return .init(label: label, icon: "camera")
+            }
+        }
+    }
+
+    private func acceptGig() {
+        guard let job, let pilotProfile else {
+            onAccept()
+            return
+        }
+        isAccepting = true
+        errorMessage = nil
+        Task {
+            do {
+                try await AviaryDataService.shared.accept(job: job, pilotID: pilotProfile.id)
+                await MainActor.run {
+                    isAccepting = false
+                    onAccept()
+                }
+            } catch {
+                await MainActor.run {
+                    isAccepting = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func initials(for name: String) -> String {
+        let initials = name
+            .split(separator: " ")
+            .compactMap(\.first)
+            .prefix(2)
+        return initials.isEmpty ? "CL" : String(initials).uppercased()
+    }
 
     private func stat(label: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {

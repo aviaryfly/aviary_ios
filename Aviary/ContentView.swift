@@ -74,12 +74,14 @@ struct PilotRootView: View {
     @ObservedObject var themeManager: ThemeManager
     let profile: UserProfile
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     @State private var tab: PilotTab = .home
 
     @State private var showAcceptPing: Bool = false
     @State private var showGigDetail: Bool = false
     @State private var showInFlight: Bool = false
     @State private var showMessages: Bool = false
+    @State private var selectedGig: AviaryJob?
 
     var body: some View {
         Group {
@@ -88,12 +90,22 @@ struct PilotRootView: View {
                 HomeScreen(
                     profile: profile,
                     onOpenAcceptPing: { showAcceptPing = true },
-                    onOpenGigDetail: { showGigDetail = true }
+                    onOpenGigDetail: {
+                        selectedGig = nil
+                        showGigDetail = true
+                    }
                 )
             case .gigs:
-                GigListScreen(onOpenGig: { showGigDetail = true })
+                GigListScreen(profile: profile, onOpenGig: { gig in
+                    selectedGig = gig
+                    showGigDetail = true
+                })
             case .fly:
-                FlyHubScreen(onTakeoff: { showInFlight = true })
+                FlyHubScreen(
+                    profile: profile,
+                    onBrowseGigs: { tab = .gigs },
+                    onTakeoff: { showInFlight = true }
+                )
             case .me:
                 ProfileScreen(themeManager: themeManager,
                               profile: profile,
@@ -110,10 +122,16 @@ struct PilotRootView: View {
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
         .sheet(isPresented: $showGigDetail) {
-            GigDetailScreen(onAccept: {
+            GigDetailScreen(job: selectedGig, pilotProfile: profile, onAccept: {
+                let acceptedBackendGig = selectedGig != nil && !demoStore.isOn
                 showGigDetail = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    showAcceptPing = true
+                if acceptedBackendGig {
+                    tab = .fly
+                    selectedGig = nil
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        showAcceptPing = true
+                    }
                 }
             })
             .environment(\.theme, t)
@@ -123,7 +141,7 @@ struct PilotRootView: View {
             InFlightScreen()
         }
         .sheet(isPresented: $showMessages) {
-            MessagesScreen()
+            MessagesScreen(profile: profile, showsCloseButton: true)
                 .environment(\.theme, t)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
@@ -146,11 +164,11 @@ struct CustomerRootView: View {
                 CustomerHomeScreen(profile: profile,
                                    onPostJob: { tab = .postJob })
             case .postJob:
-                ClientRequestScreen()
+                ClientRequestScreen(profile: profile, onPosted: { _ in tab = .myJobs })
             case .myJobs:
-                MyJobsScreen()
+                MyJobsScreen(profile: profile)
             case .messages:
-                MessagesScreen()
+                MessagesScreen(profile: profile, showsCloseButton: false)
             case .me:
                 ProfileScreen(themeManager: themeManager,
                               profile: profile,
@@ -162,7 +180,7 @@ struct CustomerRootView: View {
         }
         .ignoresSafeArea(.keyboard)
         .sheet(isPresented: $showMessages) {
-            MessagesScreen()
+            MessagesScreen(profile: profile, showsCloseButton: true)
                 .environment(\.theme, t)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
@@ -174,12 +192,17 @@ struct CustomerRootView: View {
 struct FlyHubScreen: View {
     @Environment(\.theme) private var t
     @EnvironmentObject private var demoStore: DemoModeStore
+    let profile: UserProfile
+    var onBrowseGigs: () -> Void = {}
     var onTakeoff: () -> Void
 
     @State private var showPreFlight: Bool = false
     @State private var showUpload: Bool = false
     @State private var showReview: Bool = false
     @State private var showMapHome: Bool = false
+    @State private var activeJob: AviaryJob?
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ZStack {
@@ -192,35 +215,9 @@ struct FlyHubScreen: View {
                                    : "No active gig")
 
                     if demoStore.isOn {
-                        AviaryCard(padding: 18, shadowed: true) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Chip(text: "EN ROUTE", style: .good)
-                                    Spacer()
-                                    Text("4 min")
-                                        .font(AviaryFont.mono(14, weight: .semibold))
-                                        .foregroundStyle(t.ink)
-                                }
-                                Text("Pre-flight ready")
-                                    .font(AviaryFont.display(22, weight: .bold))
-                                    .tracking(-0.02 * 22)
-                                    .foregroundStyle(t.ink)
-                                Text("Battery, SD card, LAANC clearance — confirmed.")
-                                    .font(AviaryFont.body(13))
-                                    .foregroundStyle(t.ink3)
-                                    .lineSpacing(2)
-                                HStack(spacing: 10) {
-                                    SecondaryButton(title: "Checklist") { showPreFlight = true }
-                                        .frame(maxWidth: 150)
-                                    PrimaryButton(title: "Take off",
-                                                  systemTrailing: "arrow.right",
-                                                  action: onTakeoff)
-                                }
-                                .padding(.top, 4)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 6)
+                        activeMissionCard(job: nil)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
 
                         SectionTitle(text: "Mission tools")
                             .padding(.horizontal, 20)
@@ -237,20 +234,48 @@ struct FlyHubScreen: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
-                    } else {
-                        AviaryCard(padding: 22) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                AviaryIcon(name: "drone", size: 24, color: t.ink3)
-                                Text("No active gig")
-                                    .font(AviaryFont.body(17, weight: .semibold))
-                                    .foregroundStyle(t.ink)
-                                Text("Once you accept a gig it'll show up here with the pre-flight checklist and mission tools.")
-                                    .font(AviaryFont.body(13))
-                                    .foregroundStyle(t.ink3)
-                                    .lineSpacing(2)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if isLoading {
+                        FeatureStateCard(icon: "drone",
+                                         title: "Loading active gig",
+                                         message: "Checking whether a customer has a mission assigned to you.")
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                            .padding(.bottom, 24)
+                    } else if let errorMessage {
+                        FeatureStateCard(icon: "cloud",
+                                         title: "Couldn't load active gig",
+                                         message: errorMessage,
+                                         buttonTitle: "Try again",
+                                         action: { Task { await loadActiveJob() } })
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                            .padding(.bottom, 24)
+                    } else if let activeJob {
+                        activeMissionCard(job: activeJob)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+
+                        SectionTitle(text: "Mission tools")
+                            .padding(.horizontal, 20)
+                            .padding(.top, 22)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 10) {
+                            toolRow(icon: "navigation", title: "Map of nearby gigs",
+                                    sub: "Pilot map view") { showMapHome = true }
+                            toolRow(icon: "upload", title: "Hand off deliverables",
+                                    sub: activeJob.displayDeliverables.joined(separator: " · ")) { showUpload = true }
+                            toolRow(icon: "check-circle", title: "Complete & rate",
+                                    sub: "Wrap up \(activeJob.displayClient)") { showReview = true }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    } else {
+                        FeatureStateCard(icon: "drone",
+                                         title: "No active gig",
+                                         message: "Accept a gig to unlock the pre-flight checklist, mission tools, upload flow, and completion review.",
+                                         buttonTitle: "Browse gigs",
+                                         action: onBrowseGigs)
                         .padding(.horizontal, 16)
                         .padding(.top, 6)
                         .padding(.bottom, 24)
@@ -279,6 +304,57 @@ struct FlyHubScreen: View {
         .sheet(isPresented: $showMapHome) {
             MapHomeScreen()
                 .environment(\.theme, t)
+        }
+        .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
+            await loadActiveJob()
+        }
+    }
+
+    private func loadActiveJob() async {
+        guard !demoStore.isOn else {
+            activeJob = nil
+            isLoading = false
+            errorMessage = nil
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        do {
+            activeJob = try await AviaryDataService.shared.activePilotJob(for: profile.id)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private func activeMissionCard(job: AviaryJob?) -> some View {
+        AviaryCard(padding: 18, shadowed: true) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Chip(text: job?.statusLabel.uppercased() ?? "EN ROUTE", style: .good)
+                    Spacer()
+                    Text(job?.durationText ?? "4 min")
+                        .font(AviaryFont.mono(14, weight: .semibold))
+                        .foregroundStyle(t.ink)
+                }
+                Text(job?.displayTitle ?? "Pre-flight ready")
+                    .font(AviaryFont.display(22, weight: .bold))
+                    .tracking(-0.02 * 22)
+                    .foregroundStyle(t.ink)
+                Text(job.map { "\($0.displayAddress) · \($0.scheduledText) · \($0.payoutText)" }
+                     ?? "Battery, SD card, LAANC clearance — confirmed.")
+                    .font(AviaryFont.body(13))
+                    .foregroundStyle(t.ink3)
+                    .lineSpacing(2)
+                HStack(spacing: 10) {
+                    SecondaryButton(title: "Checklist") { showPreFlight = true }
+                        .frame(maxWidth: 150)
+                    PrimaryButton(title: "Take off",
+                                  systemTrailing: "arrow.right",
+                                  action: onTakeoff)
+                }
+                .padding(.top, 4)
+            }
         }
     }
 

@@ -204,6 +204,35 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
+struct FeatureStateCard: View {
+    var icon: String
+    var title: String
+    var message: String
+    var buttonTitle: String? = nil
+    var action: (() -> Void)? = nil
+    @Environment(\.theme) private var t
+
+    var body: some View {
+        AviaryCard(padding: 22) {
+            VStack(alignment: .leading, spacing: 10) {
+                AviaryIcon(name: icon, size: 24, color: t.ink3)
+                Text(title)
+                    .font(AviaryFont.body(17, weight: .semibold))
+                    .foregroundStyle(t.ink)
+                Text(message)
+                    .font(AviaryFont.body(13))
+                    .foregroundStyle(t.ink3)
+                    .lineSpacing(2)
+                if let buttonTitle, let action {
+                    SecondaryButton(title: buttonTitle, systemTrailing: "arrow.right", action: action)
+                        .padding(.top, 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
 // MARK: - Section title (small caps)
 
 struct SectionTitle: View {
