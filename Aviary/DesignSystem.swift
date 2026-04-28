@@ -2,14 +2,13 @@ import SwiftUI
 import Combine
 
 enum AviaryTheme: String, CaseIterable, Identifiable {
-    case field, skyline, hangar
+    case field, hangar
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .field: return "Field"
-        case .skyline: return "Skyline"
-        case .hangar: return "Hangar"
+        case .field: return "Light mode"
+        case .hangar: return "Dark mode"
         }
     }
 }

@@ -1,6 +1,29 @@
 import PhotosUI
 import SwiftUI
 
+// MARK: - Earnings sheet wrapper
+
+struct EarningsSheet: View {
+    @Environment(\.theme) private var t
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            t.bg.ignoresSafeArea()
+            EarningsScreen()
+                .padding(.top, 44)
+            HStack(spacing: 12) {
+                Button { dismiss() } label: {
+                    AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+        }
+    }
+}
+
 // MARK: - Earnings
 
 struct EarningsScreen: View {
@@ -251,6 +274,7 @@ struct ProfileScreen: View {
     @State private var isUploadingAvatar: Bool = false
     @State private var avatarErrorMessage: String?
     @State private var showSettings: Bool = false
+    @State private var showEarnings: Bool = false
 
     private var avatarURL: URL? {
         profile.avatarUrl.flatMap(URL.init(string:))
@@ -303,7 +327,13 @@ struct ProfileScreen: View {
                                 profileRow(icon: "shield", label: "Insurance",
                                            value: demoStore.isOn ? "$2M Aviary Cover" : "Not added", divider: true)
                                 profileRow(icon: "card", label: "Payouts",
-                                           value: demoStore.isOn ? "Chase ••4471" : "Not set up", divider: false)
+                                           value: demoStore.isOn ? "Chase ••4471" : "Not set up", divider: true)
+                                Button { showEarnings = true } label: {
+                                    profileRow(icon: "wallet", label: "Earnings",
+                                               value: demoStore.isOn ? "$2,148.50 this week" : "No earnings yet",
+                                               divider: false)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -333,46 +363,6 @@ struct ProfileScreen: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
                     }
-
-                    SectionTitle(text: "Account")
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 8)
-                    AviaryCard(padding: 0) {
-                        VStack(spacing: 0) {
-                            profileRow(icon: "user", label: "Email",
-                                       value: profile.email, divider: true)
-                            profileRow(icon: "compass", label: "Role",
-                                       value: profile.role.displayName, divider: false)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
-
-                    SectionTitle(text: "Theme")
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 8)
-                    HStack(spacing: 8) {
-                        ForEach(AviaryTheme.allCases) { th in
-                            Button {
-                                themeManager.theme = th
-                            } label: {
-                                Text(th.label)
-                                    .font(AviaryFont.body(13, weight: .semibold))
-                                    .foregroundStyle(themeManager.theme == th ? t.accentInk : t.ink2)
-                                    .padding(.horizontal, 14).padding(.vertical, 8)
-                                    .background(
-                                        Capsule().fill(themeManager.theme == th ? t.accent : t.surface)
-                                    )
-                                    .overlay(
-                                        Capsule().strokeBorder(t.line)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
 
                     Button {
                         onOpenMessages()
@@ -423,7 +413,12 @@ struct ProfileScreen: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsScreen()
+            SettingsScreen(themeManager: themeManager, profile: profile)
+                .environment(\.theme, t)
+                .environmentObject(demoStore)
+        }
+        .sheet(isPresented: $showEarnings) {
+            EarningsSheet()
                 .environment(\.theme, t)
                 .environmentObject(demoStore)
         }

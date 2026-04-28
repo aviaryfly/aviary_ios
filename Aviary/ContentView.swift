@@ -94,8 +94,6 @@ struct PilotRootView: View {
                 GigListScreen(onOpenGig: { showGigDetail = true })
             case .fly:
                 FlyHubScreen(onTakeoff: { showInFlight = true })
-            case .earn:
-                EarningsScreen()
             case .me:
                 ProfileScreen(themeManager: themeManager,
                               profile: profile,

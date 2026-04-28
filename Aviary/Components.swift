@@ -258,14 +258,13 @@ struct AviaryTabBar<Tab: TabRepresentable>: View where Tab.AllCases: RandomAcces
 }
 
 enum PilotTab: String, CaseIterable, Identifiable, TabRepresentable {
-    case home, gigs, fly, earn, me
+    case home, gigs, fly, me
     var id: String { rawValue }
     var title: String {
         switch self {
         case .home: return "Home"
         case .gigs: return "Gigs"
         case .fly:  return "Fly"
-        case .earn: return "Earnings"
         case .me:   return "Profile"
         }
     }
@@ -274,7 +273,6 @@ enum PilotTab: String, CaseIterable, Identifiable, TabRepresentable {
         case .home: return "home"
         case .gigs: return "compass"
         case .fly:  return "drone"
-        case .earn: return "wallet"
         case .me:   return "user"
         }
     }
