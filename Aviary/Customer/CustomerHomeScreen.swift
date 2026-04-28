@@ -40,7 +40,10 @@ struct CustomerHomeScreen: View {
                     .foregroundStyle(t.ink)
             }
             Spacer()
-            Avatar(size: 32, initials: profile.initials, background: t.accentSoft)
+            Avatar(size: 32,
+                   initials: profile.initials,
+                   background: t.accentSoft,
+                   imageUrl: profile.avatarUrl.flatMap(URL.init(string:)))
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)

@@ -6,6 +6,7 @@ struct UserProfile: Codable, Equatable, Identifiable {
     let role: UserRole
     let firstName: String?
     let lastName: String?
+    let avatarUrl: String?
     let createdAt: Date?
 
     enum CodingKeys: String, CodingKey {
@@ -14,6 +15,7 @@ struct UserProfile: Codable, Equatable, Identifiable {
         case role
         case firstName = "first_name"
         case lastName = "last_name"
+        case avatarUrl = "avatar_url"
         case createdAt = "created_at"
     }
 }

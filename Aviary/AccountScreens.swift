@@ -1,9 +1,11 @@
+import PhotosUI
 import SwiftUI
 
 // MARK: - Earnings
 
 struct EarningsScreen: View {
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
 
     private struct Day: Identifiable { let id = UUID(); var d: String; var h: CGFloat; var active: Bool = false }
     private let days: [Day] = [
@@ -21,63 +23,121 @@ struct EarningsScreen: View {
                         Chip(text: "This week ▾")
                     }
 
-                    weeklyCard
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 14)
+                    if demoStore.isOn {
+                        weeklyCard
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 14)
 
-                    HStack(spacing: 10) {
-                        AviaryCard(padding: 14) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Available")
-                                    .font(AviaryFont.body(12))
-                                    .foregroundStyle(t.ink3)
-                                Text("$1,484.00")
-                                    .font(AviaryFont.mono(22, weight: .semibold))
+                        HStack(spacing: 10) {
+                            balanceCard(label: "Available", amount: "$1,484.00",
+                                        sub: "Cash out →", subColor: t.accent)
+                            balanceCard(label: "In review", amount: "$664.50",
+                                        sub: "2 gigs pending", subColor: t.ink4)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 18)
+
+                        SectionTitle(text: "Recent gigs")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            recentRow(title: "Wedding aerial · Tilden Park", date: "Sat 5:00 PM",
+                                      amt: "$780.00", icon: "check-circle", color: t.good, divider: true)
+                            recentRow(title: "Construction · 500 Folsom", date: "Fri 9:00 AM",
+                                      amt: "$485.00", icon: "check-circle", color: t.good, divider: true)
+                            recentRow(title: "Roof inspection · 22 Hillside", date: "Thu 4:30 PM",
+                                      amt: "$220.00", icon: "clock", color: t.warn, divider: false)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
+                    } else {
+                        emptyWeeklyCard
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 14)
+
+                        HStack(spacing: 10) {
+                            balanceCard(label: "Available", amount: "$0.00",
+                                        sub: "Nothing to cash out", subColor: t.ink4)
+                            balanceCard(label: "In review", amount: "$0.00",
+                                        sub: "0 gigs pending", subColor: t.ink4)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 18)
+
+                        SectionTitle(text: "Recent gigs")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+
+                        AviaryCard(padding: 22) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                AviaryIcon(name: "wallet", size: 24, color: t.ink3)
+                                Text("No completed gigs yet")
+                                    .font(AviaryFont.body(15, weight: .semibold))
                                     .foregroundStyle(t.ink)
-                                Text("Cash out →")
-                                    .font(AviaryFont.body(11, weight: .semibold))
-                                    .foregroundStyle(t.accent)
-                                    .padding(.top, 4)
+                                Text("Earnings show up here once a gig wraps and clears review.")
+                                    .font(AviaryFont.body(13))
+                                    .foregroundStyle(t.ink3)
+                                    .lineSpacing(2)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        AviaryCard(padding: 14) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("In review")
-                                    .font(AviaryFont.body(12))
-                                    .foregroundStyle(t.ink3)
-                                Text("$664.50")
-                                    .font(AviaryFont.mono(22, weight: .semibold))
-                                    .foregroundStyle(t.ink)
-                                Text("2 gigs pending")
-                                    .font(AviaryFont.body(11))
-                                    .foregroundStyle(t.ink4)
-                                    .padding(.top, 4)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 18)
-
-                    SectionTitle(text: "Recent gigs")
-                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 8)
-
-                    VStack(spacing: 0) {
-                        recentRow(title: "Wedding aerial · Tilden Park", date: "Sat 5:00 PM",
-                                  amt: "$780.00", icon: "check-circle", color: t.good, divider: true)
-                        recentRow(title: "Construction · 500 Folsom", date: "Fri 9:00 AM",
-                                  amt: "$485.00", icon: "check-circle", color: t.good, divider: true)
-                        recentRow(title: "Roof inspection · 22 Hillside", date: "Thu 4:30 PM",
-                                  amt: "$220.00", icon: "clock", color: t.warn, divider: false)
+                        .padding(.bottom, 24)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
                 }
             }
         }
+    }
+
+    private func balanceCard(label: String, amount: String, sub: String, subColor: Color) -> some View {
+        AviaryCard(padding: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(AviaryFont.body(12))
+                    .foregroundStyle(t.ink3)
+                Text(amount)
+                    .font(AviaryFont.mono(22, weight: .semibold))
+                    .foregroundStyle(t.ink)
+                Text(sub)
+                    .font(AviaryFont.body(11, weight: .semibold))
+                    .foregroundStyle(subColor)
+                    .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var emptyWeeklyCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("EARNED THIS WEEK")
+                .font(AviaryFont.body(12, weight: .medium))
+                .tracking(0.04 * 12)
+                .foregroundStyle(t.accentInk.opacity(0.85))
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                Text("$0")
+                    .font(AviaryFont.mono(42, weight: .semibold))
+                    .tracking(-0.03 * 42)
+                    .foregroundStyle(t.accentInk)
+                Text(".00")
+                    .font(AviaryFont.mono(22, weight: .semibold))
+                    .foregroundStyle(t.accentInk.opacity(0.7))
+            }
+            .padding(.top, 4)
+            Text("0 gigs this week")
+                .font(AviaryFont.body(12))
+                .foregroundStyle(t.accentInk.opacity(0.7))
+                .padding(.top, 12)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [t.accent, Color(hex: 0x6B5BFF).mix(with: t.accent, by: 0.7)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
     }
 
     private var weeklyCard: some View {
@@ -186,6 +246,15 @@ struct ProfileScreen: View {
     let profile: UserProfile
     var onOpenMessages: () -> Void = {}
     @EnvironmentObject private var auth: AuthViewModel
+    @EnvironmentObject private var demoStore: DemoModeStore
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var isUploadingAvatar: Bool = false
+    @State private var avatarErrorMessage: String?
+    @State private var showSettings: Bool = false
+
+    private var avatarURL: URL? {
+        profile.avatarUrl.flatMap(URL.init(string:))
+    }
 
     var body: some View {
         ZStack {
@@ -193,7 +262,7 @@ struct ProfileScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 14) {
-                        Avatar(size: 64, initials: profile.initials, background: t.accentSoft)
+                        avatarHeader
                         VStack(alignment: .leading, spacing: 2) {
                             Text(profile.displayName)
                                 .font(AviaryFont.body(19, weight: .bold))
@@ -203,7 +272,13 @@ struct ProfileScreen: View {
                             Text(roleSubtitle)
                                 .font(AviaryFont.body(13))
                                 .foregroundStyle(t.ink3)
-                            if profile.role == .pilot {
+                            if let err = avatarErrorMessage {
+                                Text(err)
+                                    .font(AviaryFont.body(12))
+                                    .foregroundStyle(t.warn)
+                                    .padding(.top, 2)
+                            }
+                            if profile.role == .pilot && demoStore.isOn {
                                 HStack(spacing: 6) {
                                     Chip(text: "4.92", icon: "star", style: .good)
                                     Chip(text: "137 gigs")
@@ -221,13 +296,14 @@ struct ProfileScreen: View {
                         AviaryCard(padding: 0) {
                             VStack(spacing: 0) {
                                 profileRow(icon: "cert", label: "Certifications",
-                                           value: "Part 107 · verified", isGood: true, divider: true)
+                                           value: demoStore.isOn ? "Part 107 · verified" : "Not added",
+                                           isGood: demoStore.isOn, divider: true)
                                 profileRow(icon: "drone", label: "Equipment",
-                                           value: "Mavic 3 Pro · DJI Mini 4", divider: true)
+                                           value: demoStore.isOn ? "Mavic 3 Pro · DJI Mini 4" : "Not added", divider: true)
                                 profileRow(icon: "shield", label: "Insurance",
-                                           value: "$2M Aviary Cover", divider: true)
+                                           value: demoStore.isOn ? "$2M Aviary Cover" : "Not added", divider: true)
                                 profileRow(icon: "card", label: "Payouts",
-                                           value: "Chase ••4471", divider: false)
+                                           value: demoStore.isOn ? "Chase ••4471" : "Not set up", divider: false)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -237,9 +313,9 @@ struct ProfileScreen: View {
                             .padding(.horizontal, 20)
                             .padding(.bottom, 8)
                         HStack(spacing: 10) {
-                            perfStat(label: "On-time", value: "99%")
-                            perfStat(label: "Accept", value: "87%")
-                            perfStat(label: "Re-hires", value: "42%")
+                            perfStat(label: "On-time", value: demoStore.isOn ? "99%" : "—")
+                            perfStat(label: "Accept",  value: demoStore.isOn ? "87%" : "—")
+                            perfStat(label: "Re-hires", value: demoStore.isOn ? "42%" : "—")
                         }
                         .padding(.horizontal, 20)
                         .padding(.bottom, 16)
@@ -301,26 +377,16 @@ struct ProfileScreen: View {
                     Button {
                         onOpenMessages()
                     } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10).fill(t.accentSoft)
-                                AviaryIcon(name: "message", size: 18, color: t.accent)
-                            }
-                            .frame(width: 34, height: 34)
-                            Text("Messages")
-                                .font(AviaryFont.body(14, weight: .medium))
-                                .foregroundStyle(t.ink)
-                            Spacer()
-                            AviaryIcon(name: "chevron-right", size: 16, color: t.ink4)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: Radius.md).fill(t.surface)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Radius.md).strokeBorder(t.line)
-                        )
+                        navRow(icon: "message", label: "Messages", iconColor: t.accent)
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                    Button {
+                        showSettings = true
+                    } label: {
+                        navRow(icon: "sliders", label: "Settings", iconColor: t.accent)
                     }
                     .buttonStyle(PressableButtonStyle())
                     .padding(.horizontal, 16)
@@ -355,6 +421,107 @@ struct ProfileScreen: View {
                     .padding(.bottom, 24)
                 }
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsScreen()
+                .environment(\.theme, t)
+                .environmentObject(demoStore)
+        }
+        .onChange(of: pickerItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await handlePickedItem(newItem) }
+        }
+    }
+
+    @ViewBuilder
+    private var avatarHeader: some View {
+        if demoStore.isOn {
+            ZStack {
+                Avatar(size: 64,
+                       initials: profile.initials,
+                       background: t.accentSoft,
+                       imageUrl: avatarURL)
+                if isUploadingAvatar {
+                    Circle().fill(Color.black.opacity(0.35))
+                        .frame(width: 64, height: 64)
+                    ProgressView().tint(.white)
+                }
+            }
+            .opacity(0.85)
+        } else {
+            PhotosPicker(selection: $pickerItem,
+                         matching: .images,
+                         photoLibrary: .shared()) {
+                ZStack {
+                    Avatar(size: 64,
+                           initials: profile.initials,
+                           background: t.accentSoft,
+                           imageUrl: avatarURL)
+                    if isUploadingAvatar {
+                        Circle().fill(Color.black.opacity(0.35))
+                            .frame(width: 64, height: 64)
+                        ProgressView().tint(.white)
+                    }
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            ZStack {
+                                Circle().fill(t.accent)
+                                AviaryIcon(name: "camera", size: 12, stroke: 2, color: t.accentInk)
+                            }
+                            .frame(width: 22, height: 22)
+                            .overlay(Circle().strokeBorder(t.bg, lineWidth: 2))
+                        }
+                    }
+                    .frame(width: 64, height: 64)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func navRow(icon: String, label: String, iconColor: Color) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(t.accentSoft)
+                AviaryIcon(name: icon, size: 18, color: iconColor)
+            }
+            .frame(width: 34, height: 34)
+            Text(label)
+                .font(AviaryFont.body(14, weight: .medium))
+                .foregroundStyle(t.ink)
+            Spacer()
+            AviaryIcon(name: "chevron-right", size: 16, color: t.ink4)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.md).fill(t.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md).strokeBorder(t.line)
+        )
+    }
+
+    private func handlePickedItem(_ item: PhotosPickerItem) async {
+        avatarErrorMessage = nil
+        guard case .signedIn(let realProfile) = auth.state else { return }
+        isUploadingAvatar = true
+        defer {
+            isUploadingAvatar = false
+            pickerItem = nil
+        }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let uiImage = UIImage(data: data) else {
+                avatarErrorMessage = "Couldn't read that image."
+                return
+            }
+            _ = try await AvatarService.uploadAvatar(image: uiImage, for: realProfile.id)
+            await auth.refreshProfile()
+        } catch {
+            avatarErrorMessage = error.localizedDescription
         }
     }
 
@@ -412,34 +579,72 @@ struct ProfileScreen: View {
 struct MessagesScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var demoStore: DemoModeStore
 
     var body: some View {
         ZStack {
             t.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                header
+                if demoStore.isOn {
+                    header
 
-                pinnedContext
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    pinnedContext
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        bubble(text: "Hey Jordan — gate code is 4471. Owner asked for a sunset shot too if light's good.",
-                               time: "2:14 PM", incoming: true)
-                        bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
-                               time: "2:16 PM ✓✓", incoming: false)
-                        bubble(text: "Done. Sending the add-on now 👍",
-                               time: nil, incoming: true)
-                        typingBubble
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            bubble(text: "Hey Jordan — gate code is 4471. Owner asked for a sunset shot too if light's good.",
+                                   time: "2:14 PM", incoming: true)
+                            bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
+                                   time: "2:16 PM ✓✓", incoming: false)
+                            bubble(text: "Done. Sending the add-on now 👍",
+                                   time: nil, incoming: true)
+                            typingBubble
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                        .padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 12)
-                }
 
-                composer
+                    composer
+                } else {
+                    emptyHeader
+                    Spacer()
+                    emptyState
+                        .padding(.horizontal, 24)
+                    Spacer()
+                }
             }
+        }
+    }
+
+    private var emptyHeader: some View {
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
+            }
+            Text("Messages")
+                .font(AviaryFont.body(16, weight: .semibold))
+                .foregroundStyle(t.ink)
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            AviaryIcon(name: "message", size: 28, color: t.ink3)
+            Text("No conversations yet")
+                .font(AviaryFont.body(17, weight: .semibold))
+                .foregroundStyle(t.ink)
+            Text("Once you accept a gig, your client thread will appear here.")
+                .font(AviaryFont.body(13))
+                .foregroundStyle(t.ink3)
+                .lineSpacing(2)
+                .multilineTextAlignment(.center)
         }
     }
 

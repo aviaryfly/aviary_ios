@@ -22,12 +22,29 @@ final class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var isWorking: Bool = false
     @Published var pendingVerification: PendingVerification?
+    @Published private(set) var displayedProfile: UserProfile?
 
     private let client = Backend.client
     private var stateChangesTask: Task<Void, Never>?
+    private let demoStore: DemoModeStore
+    private var demoCancellable: AnyCancellable?
+    private var realProfile: UserProfile?
+
+    init(demoStore: DemoModeStore) {
+        self.demoStore = demoStore
+        self.demoCancellable = demoStore.$isOn
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in
+                    await self.recomputeDisplayedProfile()
+                }
+            }
+    }
 
     deinit {
         stateChangesTask?.cancel()
+        demoCancellable?.cancel()
     }
 
     func bootstrap() async {
@@ -151,9 +168,35 @@ final class AuthViewModel: ObservableObject {
         errorMessage = nil
         do {
             try await client.auth.signOut()
+            realProfile = nil
+            displayedProfile = nil
+            DemoProfileService.shared.clearCache()
             state = .signedOut
         } catch {
             errorMessage = friendlyMessage(for: error)
+        }
+    }
+
+    func refreshProfile() async {
+        guard let userID = realProfile?.id else { return }
+        await fetchAndSetProfile(for: userID, fallbackEmail: realProfile?.email)
+    }
+
+    private func recomputeDisplayedProfile() async {
+        guard let real = realProfile else {
+            displayedProfile = nil
+            return
+        }
+        if !demoStore.isOn {
+            displayedProfile = real
+            return
+        }
+        do {
+            let demo = try await DemoProfileService.shared.demoProfile(for: real.role)
+            displayedProfile = demo
+        } catch {
+            displayedProfile = real
+            errorMessage = "Couldn't load demo data, showing your account."
         }
     }
 
@@ -181,10 +224,14 @@ final class AuthViewModel: ObservableObject {
                 .single()
                 .execute()
                 .value
+            realProfile = profile
             state = .signedIn(profile)
+            await recomputeDisplayedProfile()
         } catch {
             errorMessage = "We couldn't load your profile. Please sign in again."
             try? await client.auth.signOut()
+            realProfile = nil
+            displayedProfile = nil
             state = .signedOut
         }
     }

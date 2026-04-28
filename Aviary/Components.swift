@@ -28,16 +28,35 @@ struct Avatar: View {
     var size: CGFloat = 36
     var initials: String = "JD"
     var background: Color
+    var imageUrl: URL? = nil
     @Environment(\.theme) private var t
 
     var body: some View {
         ZStack {
             Circle().fill(background)
-            Text(initials)
-                .font(AviaryFont.body(size * 0.36, weight: .semibold))
-                .foregroundStyle(t.ink2)
+            if let url = imageUrl {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        Text(initials)
+                            .font(AviaryFont.body(size * 0.36, weight: .semibold))
+                            .foregroundStyle(t.ink2)
+                    }
+                }
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+            } else {
+                Text(initials)
+                    .font(AviaryFont.body(size * 0.36, weight: .semibold))
+                    .foregroundStyle(t.ink2)
+            }
         }
         .frame(width: size, height: size)
+        .clipShape(Circle())
     }
 }
 

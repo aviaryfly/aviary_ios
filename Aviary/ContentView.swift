@@ -11,8 +11,11 @@ struct ContentView: View {
                 SplashView()
             case .signedOut:
                 OnboardingFlow()
-            case .signedIn(let profile):
-                RootView(themeManager: themeManager, profile: profile)
+            case .signedIn(let signedInProfile):
+                RootView(
+                    themeManager: themeManager,
+                    profile: auth.displayedProfile ?? signedInProfile
+                )
             }
         }
         .environment(\.theme, themeManager.tokens)
@@ -23,9 +26,9 @@ struct ContentView: View {
 
     private var stateKey: String {
         switch auth.state {
-        case .loading:               return "loading"
-        case .signedOut:             return "signedOut"
-        case .signedIn(let profile): return "signedIn:\(profile.id)"
+        case .loading:   return "loading"
+        case .signedOut: return "signedOut"
+        case .signedIn:  return "signedIn:\(auth.displayedProfile?.id.uuidString ?? "?")"
         }
     }
 }
@@ -172,6 +175,7 @@ struct CustomerRootView: View {
 
 struct FlyHubScreen: View {
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     var onTakeoff: () -> Void
 
     @State private var showPreFlight: Bool = false
@@ -184,53 +188,75 @@ struct FlyHubScreen: View {
             t.bg.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    PageHeader(title: "Fly", subtitle: "Active gig · Real estate · 1247 Vine St")
+                    PageHeader(title: "Fly",
+                               subtitle: demoStore.isOn
+                                   ? "Active gig · Real estate · 1247 Vine St"
+                                   : "No active gig")
 
-                    AviaryCard(padding: 18, shadowed: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Chip(text: "EN ROUTE", style: .good)
-                                Spacer()
-                                Text("4 min")
-                                    .font(AviaryFont.mono(14, weight: .semibold))
+                    if demoStore.isOn {
+                        AviaryCard(padding: 18, shadowed: true) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Chip(text: "EN ROUTE", style: .good)
+                                    Spacer()
+                                    Text("4 min")
+                                        .font(AviaryFont.mono(14, weight: .semibold))
+                                        .foregroundStyle(t.ink)
+                                }
+                                Text("Pre-flight ready")
+                                    .font(AviaryFont.display(22, weight: .bold))
+                                    .tracking(-0.02 * 22)
                                     .foregroundStyle(t.ink)
+                                Text("Battery, SD card, LAANC clearance — confirmed.")
+                                    .font(AviaryFont.body(13))
+                                    .foregroundStyle(t.ink3)
+                                    .lineSpacing(2)
+                                HStack(spacing: 10) {
+                                    SecondaryButton(title: "Checklist") { showPreFlight = true }
+                                        .frame(maxWidth: 150)
+                                    PrimaryButton(title: "Take off",
+                                                  systemTrailing: "arrow.right",
+                                                  action: onTakeoff)
+                                }
+                                .padding(.top, 4)
                             }
-                            Text("Pre-flight ready")
-                                .font(AviaryFont.display(22, weight: .bold))
-                                .tracking(-0.02 * 22)
-                                .foregroundStyle(t.ink)
-                            Text("Battery, SD card, LAANC clearance — confirmed.")
-                                .font(AviaryFont.body(13))
-                                .foregroundStyle(t.ink3)
-                                .lineSpacing(2)
-                            HStack(spacing: 10) {
-                                SecondaryButton(title: "Checklist") { showPreFlight = true }
-                                    .frame(maxWidth: 150)
-                                PrimaryButton(title: "Take off",
-                                              systemTrailing: "arrow.right",
-                                              action: onTakeoff)
-                            }
-                            .padding(.top, 4)
                         }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
 
-                    SectionTitle(text: "Mission tools")
-                        .padding(.horizontal, 20)
-                        .padding(.top, 22)
-                        .padding(.bottom, 8)
+                        SectionTitle(text: "Mission tools")
+                            .padding(.horizontal, 20)
+                            .padding(.top, 22)
+                            .padding(.bottom, 8)
 
-                    VStack(spacing: 10) {
-                        toolRow(icon: "navigation", title: "Map of nearby gigs",
-                                sub: "Pilot map view") { showMapHome = true }
-                        toolRow(icon: "upload", title: "Hand off deliverables",
-                                sub: "Auto-upload over Wi-Fi") { showUpload = true }
-                        toolRow(icon: "check-circle", title: "Complete & rate",
-                                sub: "Wrap up the gig") { showReview = true }
+                        VStack(spacing: 10) {
+                            toolRow(icon: "navigation", title: "Map of nearby gigs",
+                                    sub: "Pilot map view") { showMapHome = true }
+                            toolRow(icon: "upload", title: "Hand off deliverables",
+                                    sub: "Auto-upload over Wi-Fi") { showUpload = true }
+                            toolRow(icon: "check-circle", title: "Complete & rate",
+                                    sub: "Wrap up the gig") { showReview = true }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    } else {
+                        AviaryCard(padding: 22) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                AviaryIcon(name: "drone", size: 24, color: t.ink3)
+                                Text("No active gig")
+                                    .font(AviaryFont.body(17, weight: .semibold))
+                                    .foregroundStyle(t.ink)
+                                Text("Once you accept a gig it'll show up here with the pre-flight checklist and mission tools.")
+                                    .font(AviaryFont.body(13))
+                                    .foregroundStyle(t.ink3)
+                                    .lineSpacing(2)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .padding(.bottom, 24)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
                 }
             }
         }
@@ -292,6 +318,8 @@ struct FlyHubScreen: View {
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(AuthViewModel())
+    let demoStore = DemoModeStore()
+    return ContentView()
+        .environmentObject(AuthViewModel(demoStore: demoStore))
+        .environmentObject(demoStore)
 }

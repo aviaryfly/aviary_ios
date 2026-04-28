@@ -9,12 +9,20 @@ import SwiftUI
 
 @main
 struct AviaryApp: App {
-    @StateObject private var auth = AuthViewModel()
+    @StateObject private var demoStore: DemoModeStore
+    @StateObject private var auth: AuthViewModel
+
+    init() {
+        let store = DemoModeStore()
+        _demoStore = StateObject(wrappedValue: store)
+        _auth = StateObject(wrappedValue: AuthViewModel(demoStore: store))
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(auth)
+                .environmentObject(demoStore)
                 .task { await auth.bootstrap() }
         }
     }

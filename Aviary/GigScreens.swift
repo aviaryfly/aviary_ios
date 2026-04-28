@@ -4,6 +4,7 @@ import SwiftUI
 
 struct GigListScreen: View {
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     @State private var sortIdx: Int = 0
     var onOpenGig: () -> Void = {}
 
@@ -25,7 +26,7 @@ struct GigListScreen: View {
         ZStack {
             t.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                PageHeader(title: "Gigs", subtitle: "14 within 10 mi") {
+                PageHeader(title: "Gigs", subtitle: demoStore.isOn ? "14 within 10 mi" : "0 within 10 mi") {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12).fill(t.surface2)
                             .frame(width: 40, height: 40)
@@ -57,18 +58,40 @@ struct GigListScreen: View {
                 }
 
                 ScrollView {
-                    LazyVStack(spacing: 10) {
-                        ForEach(gigs) { gig in
-                            Button { onOpenGig() } label: {
-                                gigCard(gig)
+                    if demoStore.isOn {
+                        LazyVStack(spacing: 10) {
+                            ForEach(gigs) { gig in
+                                Button { onOpenGig() } label: {
+                                    gigCard(gig)
+                                }
+                                .buttonStyle(PressableButtonStyle())
                             }
-                            .buttonStyle(PressableButtonStyle())
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    } else {
+                        emptyState
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 24)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
                 }
             }
+        }
+    }
+
+    private var emptyState: some View {
+        AviaryCard(padding: 22) {
+            VStack(alignment: .leading, spacing: 10) {
+                AviaryIcon(name: "compass", size: 24, color: t.ink3)
+                Text("No gigs nearby right now")
+                    .font(AviaryFont.body(17, weight: .semibold))
+                    .foregroundStyle(t.ink)
+                Text("Check back later or expand your search radius. We'll send a push when something matches.")
+                    .font(AviaryFont.body(13))
+                    .foregroundStyle(t.ink3)
+                    .lineSpacing(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeScreen: View {
     let profile: UserProfile
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     @StateObject private var weather = WeatherViewModel()
     var onOpenAcceptPing: () -> Void = {}
     var onOpenGigDetail: () -> Void = {}
@@ -15,22 +16,35 @@ struct HomeScreen: View {
                 VStack(alignment: .leading, spacing: 0) {
                     header
                     greeting
-                    todaySnapshot
-                        .padding(.horizontal, 16)
-                        .padding(.top, 6)
+                    if demoStore.isOn {
+                        todaySnapshot
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                    } else {
+                        todaySnapshotEmpty
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                    }
                     quickActions
                         .padding(.horizontal, 22)
                         .padding(.top, 12)
                     upNextHeader
                         .padding(.horizontal, 22)
                         .padding(.top, 8)
-                    upNextCard
-                        .padding(.horizontal, 16)
-                        .padding(.top, 6)
-                    editorialBanner
-                        .padding(.horizontal, 22)
-                        .padding(.top, 14)
-                        .padding(.bottom, 24)
+                    if demoStore.isOn {
+                        upNextCard
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                        editorialBanner
+                            .padding(.horizontal, 22)
+                            .padding(.top, 14)
+                            .padding(.bottom, 24)
+                    } else {
+                        upNextEmpty
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                            .padding(.bottom, 24)
+                    }
                 }
             }
         }
@@ -47,7 +61,10 @@ struct HomeScreen: View {
                     .foregroundStyle(t.ink)
             }
             Spacer()
-            Avatar(size: 32, initials: profile.initials, background: t.accentSoft)
+            Avatar(size: 32,
+                   initials: profile.initials,
+                   background: t.accentSoft,
+                   imageUrl: profile.avatarUrl.flatMap(URL.init(string:)))
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)
@@ -166,7 +183,8 @@ struct HomeScreen: View {
             quickAction(iconBg: t.good, iconColor: .white, icon: "navigation",
                         title: "Go online", subtitle: "Accept pings")
             quickAction(iconBg: t.surface2, iconColor: t.accent, icon: "compass",
-                        title: "Browse", subtitle: "14 nearby")
+                        title: "Browse",
+                        subtitle: demoStore.isOn ? "14 nearby" : "0 nearby")
         }
     }
 
@@ -252,6 +270,56 @@ struct HomeScreen: View {
             }
         }
         .buttonStyle(PressableButtonStyle())
+    }
+
+    private var todaySnapshotEmpty: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("TODAY")
+                .font(AviaryFont.body(11, weight: .semibold))
+                .tracking(0.08 * 11)
+                .foregroundStyle(t.ink3)
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                Text("$0")
+                    .font(AviaryFont.mono(36, weight: .semibold))
+                    .tracking(-0.025 * 36)
+                    .foregroundStyle(t.ink)
+                Text(".00")
+                    .font(AviaryFont.mono(18, weight: .semibold))
+                    .foregroundStyle(t.ink3)
+                Spacer()
+                Text("0 gigs today")
+                    .font(AviaryFont.body(12))
+                    .foregroundStyle(t.ink3)
+            }
+            .padding(.top, 4)
+            Text("Go online to start accepting gigs.")
+                .font(AviaryFont.body(13))
+                .foregroundStyle(t.ink3)
+                .padding(.top, 14)
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(t.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(t.line)
+        )
+    }
+
+    private var upNextEmpty: some View {
+        AviaryCard(padding: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                AviaryIcon(name: "compass", size: 22, color: t.ink3)
+                Text("No upcoming gigs")
+                    .font(AviaryFont.body(15, weight: .semibold))
+                    .foregroundStyle(t.ink)
+                Text("Browse nearby gigs or wait for an accept-ping when you're online.")
+                    .font(AviaryFont.body(13))
+                    .foregroundStyle(t.ink3)
+                    .lineSpacing(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var editorialBanner: some View {
