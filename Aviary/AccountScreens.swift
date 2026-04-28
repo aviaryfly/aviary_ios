@@ -275,6 +275,16 @@ struct ProfileScreen: View {
     @State private var avatarErrorMessage: String?
     @State private var showSettings: Bool = false
     @State private var showEarnings: Bool = false
+    @State private var showCertifications: Bool = false
+    @State private var showEquipment: Bool = false
+    @State private var showInsurance: Bool = false
+    @State private var certCount: Int = 0
+    @State private var equipmentCount: Int = 0
+    @State private var insuranceCount: Int = 0
+    @State private var primaryEquipmentName: String?
+    @State private var primaryInsurance: PilotInsurance?
+    @State private var primaryCertification: PilotCertification?
+    @State private var hasLoadedCredentials: Bool = false
 
     private var avatarURL: URL? {
         profile.avatarUrl.flatMap(URL.init(string:))
@@ -319,13 +329,23 @@ struct ProfileScreen: View {
                     if profile.role == .pilot {
                         AviaryCard(padding: 0) {
                             VStack(spacing: 0) {
-                                profileRow(icon: "cert", label: "Certifications",
-                                           value: demoStore.isOn ? "Part 107 · verified" : "Not added",
-                                           isGood: demoStore.isOn, divider: true)
-                                profileRow(icon: "drone", label: "Equipment",
-                                           value: demoStore.isOn ? "Mavic 3 Pro · DJI Mini 4" : "Not added", divider: true)
-                                profileRow(icon: "shield", label: "Insurance",
-                                           value: demoStore.isOn ? "$2M Aviary Cover" : "Not added", divider: true)
+                                Button { showCertifications = true } label: {
+                                    profileRow(icon: "cert", label: "Certifications",
+                                               value: certificationsValue,
+                                               isGood: !demoStore.isOn && (primaryCertification?.verified ?? false),
+                                               divider: true)
+                                }
+                                .buttonStyle(.plain)
+                                Button { showEquipment = true } label: {
+                                    profileRow(icon: "drone", label: "Equipment",
+                                               value: equipmentValue, divider: true)
+                                }
+                                .buttonStyle(.plain)
+                                Button { showInsurance = true } label: {
+                                    profileRow(icon: "shield", label: "Insurance",
+                                               value: insuranceValue, divider: true)
+                                }
+                                .buttonStyle(.plain)
                                 profileRow(icon: "card", label: "Payouts",
                                            value: demoStore.isOn ? "Chase ••4471" : "Not set up", divider: true)
                                 Button { showEarnings = true } label: {
@@ -422,9 +442,92 @@ struct ProfileScreen: View {
                 .environment(\.theme, t)
                 .environmentObject(demoStore)
         }
+        .sheet(isPresented: $showCertifications, onDismiss: { Task { await reloadCredentialsSummary() } }) {
+            CertificationsScreen(pilotID: realPilotID ?? profile.id)
+                .environment(\.theme, t)
+        }
+        .sheet(isPresented: $showEquipment, onDismiss: { Task { await reloadCredentialsSummary() } }) {
+            EquipmentScreen(pilotID: realPilotID ?? profile.id)
+                .environment(\.theme, t)
+        }
+        .sheet(isPresented: $showInsurance, onDismiss: { Task { await reloadCredentialsSummary() } }) {
+            InsuranceScreen(pilotID: realPilotID ?? profile.id)
+                .environment(\.theme, t)
+        }
         .onChange(of: pickerItem) { _, newItem in
             guard let newItem else { return }
             Task { await handlePickedItem(newItem) }
+        }
+        .task(id: credentialsLoadKey) {
+            await reloadCredentialsSummary()
+        }
+    }
+
+    private var realPilotID: UUID? {
+        if case .signedIn(let realProfile) = auth.state {
+            return realProfile.id
+        }
+        return nil
+    }
+
+    private var credentialsLoadKey: String {
+        "\(profile.role.rawValue)-\(realPilotID?.uuidString ?? "none")-\(demoStore.isOn)"
+    }
+
+    private var certificationsValue: String {
+        if demoStore.isOn { return "Part 107 · verified" }
+        guard hasLoadedCredentials else { return "—" }
+        guard let primary = primaryCertification else { return "Not added" }
+        if certCount > 1 {
+            return "\(primary.title) +\(certCount - 1) more"
+        }
+        return primary.title
+    }
+
+    private var equipmentValue: String {
+        if demoStore.isOn { return "Mavic 3 Pro · DJI Mini 4" }
+        guard hasLoadedCredentials else { return "—" }
+        guard let primary = primaryEquipmentName, !primary.isEmpty else {
+            return equipmentCount == 0 ? "Not added" : "\(equipmentCount) item\(equipmentCount == 1 ? "" : "s")"
+        }
+        if equipmentCount > 1 {
+            return "\(primary) +\(equipmentCount - 1) more"
+        }
+        return primary
+    }
+
+    private var insuranceValue: String {
+        if demoStore.isOn { return "$2M Aviary Cover" }
+        guard hasLoadedCredentials else { return "—" }
+        guard let primary = primaryInsurance else { return "Not added" }
+        if let coverage = primary.coverageText {
+            return "\(coverage) · \(primary.provider)"
+        }
+        return primary.provider
+    }
+
+    private func reloadCredentialsSummary() async {
+        guard !demoStore.isOn,
+              profile.role == .pilot,
+              let pilotID = realPilotID,
+              SupabaseConfig.isConfigured else {
+            hasLoadedCredentials = true
+            return
+        }
+        async let certsTask = PilotCredentialsService.shared.certifications(for: pilotID)
+        async let equipTask = PilotCredentialsService.shared.equipment(for: pilotID)
+        async let insTask = PilotCredentialsService.shared.insurance(for: pilotID)
+        do {
+            let (certs, equip, ins) = try await (certsTask, equipTask, insTask)
+            certCount = certs.count
+            primaryCertification = certs.first
+            equipmentCount = equip.count
+            primaryEquipmentName = equip.first(where: { $0.isPrimary })?.displayName ?? equip.first?.displayName
+            insuranceCount = ins.count
+            primaryInsurance = ins.first(where: { !$0.isExpired }) ?? ins.first
+            hasLoadedCredentials = true
+        } catch {
+            hasLoadedCredentials = true
         }
     }
 
