@@ -164,7 +164,7 @@ struct MyJobsScreen: View {
                         .foregroundStyle(t.ink3)
                         .lineLimit(1)
                     HStack(spacing: 8) {
-                        Chip(text: job.statusLabel, style: job.isCompleted ? .good : .accent)
+                        Chip(text: job.statusLabel, style: chipStyle(for: job))
                         Text(job.scheduledText)
                             .font(AviaryFont.body(12))
                             .foregroundStyle(t.ink4)
@@ -182,6 +182,14 @@ struct MyJobsScreen: View {
         case "event": return "star"
         case "mapping": return "altitude"
         default: return "camera"
+        }
+    }
+
+    private func chipStyle(for job: AviaryJob) -> Chip.Style {
+        switch job.normalizedStatus {
+        case "completed", "closed", "paid": return .good
+        case "cancelled":                   return .neutral
+        default:                            return .accent
         }
     }
 
@@ -301,6 +309,14 @@ private struct CustomerJobDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     let job: AviaryJob
 
+    private var detailChipStyle: Chip.Style {
+        switch job.normalizedStatus {
+        case "completed", "closed", "paid": return .good
+        case "cancelled":                   return .neutral
+        default:                            return .accent
+        }
+    }
+
     var body: some View {
         ZStack {
             t.bg.ignoresSafeArea()
@@ -314,7 +330,7 @@ private struct CustomerJobDetailScreen: View {
                             .font(AviaryFont.body(16, weight: .semibold))
                             .foregroundStyle(t.ink)
                         Spacer()
-                        Chip(text: job.statusLabel, style: job.isCompleted ? .good : .accent)
+                        Chip(text: job.statusLabel, style: detailChipStyle)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)

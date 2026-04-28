@@ -186,7 +186,7 @@ struct HomeScreen: View {
             Button(action: onOpenNearbyGigs) {
                 quickAction(iconBg: t.surface2, iconColor: t.accent, icon: "compass",
                             title: "Browse",
-                            subtitle: demoStore.isOn ? "14 nearby" : "0 nearby")
+                            subtitle: demoStore.isOn ? "8 open" : "0 nearby")
             }
             .buttonStyle(PressableButtonStyle())
         }

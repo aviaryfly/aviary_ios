@@ -429,16 +429,16 @@ struct NearbyGigsMapScreen: View {
     private func demoPins(around center: CLLocationCoordinate2D, excludingPrimary: Bool = false) -> [GigMapPin] {
         // Offsets ~ 0.005 degrees latitude ≈ 0.55 km
         let seeds: [(Double, Double, String, String, String, String, Bool)] = [
-            (0.0035, -0.0042, "$340", "Real estate aerials",
+            (0.0035, -0.0042, "$340", "Real estate listing",
              "1247 Vine St · Today, 3:30 PM", "Real estate", true),
-            (-0.0044, 0.0058, "$185", "Roof inspection",
+            (-0.0044, 0.0058, "$220", "Roof inspection",
              "22 Hillside Ave · Today, 4:30 PM", "Inspection", false),
-            (0.0061, 0.0034, "$520", "Wedding aerials",
+            (0.0061, 0.0034, "$780", "Wedding aerial coverage",
              "Tilden Park · Sat, 5:00 PM", "Event", false),
-            (-0.0058, -0.0049, "$95",  "Construction progress",
+            (-0.0058, -0.0049, "$485", "Construction site progress",
              "500 Folsom St · Tomorrow, 9:00 AM", "Inspection", false),
-            (0.0009, 0.0072,  "$410", "Vineyard mapping",
-             "Napa, CA · Wed, 8:00 AM", "Mapping", false),
+            (0.0009, 0.0072, "$1,250", "Vineyard mapping",
+             "Stags Leap · Wed, 8:00 AM", "Mapping", false),
         ]
         return seeds.compactMap { dLat, dLon, label, title, subtitle, jobType, primary in
             if excludingPrimary && primary { return nil }

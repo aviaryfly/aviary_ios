@@ -17,8 +17,8 @@ struct PreFlightScreen: View {
         .init(label: "Airspace authorization", value: "LAANC granted · 200 ft AGL", done: true),
     ]
     private let conditions: [Item] = [
-        .init(label: "Weather check", value: "Clear · 9 mph · gust 14", done: false),
-        .init(label: "Bystanders briefed", value: "Required for premium gigs", done: false, warn: true),
+        .init(label: "Weather check", value: "Clear · 9 mph · gust 14", done: true),
+        .init(label: "Bystanders briefed", value: "Confirmed with on-site contact", done: true),
     ]
 
     var body: some View {
@@ -64,9 +64,9 @@ struct PreFlightScreen: View {
                     .foregroundStyle(t.ink)
             }
             Spacer()
-            Text("4 of 6")
+            Text("6 of 6")
                 .font(AviaryFont.mono(13, weight: .semibold))
-                .foregroundStyle(t.accent)
+                .foregroundStyle(t.good)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -77,8 +77,8 @@ struct PreFlightScreen: View {
         ZStack(alignment: .leading) {
             Capsule().fill(t.surface2).frame(height: 4)
             GeometryReader { geo in
-                Capsule().fill(t.accent)
-                    .frame(width: geo.size.width * 0.66, height: 4)
+                Capsule().fill(t.good)
+                    .frame(width: geo.size.width, height: 4)
             }
             .frame(height: 4)
         }
@@ -124,7 +124,7 @@ struct PreFlightScreen: View {
 
     private var footer: some View {
         VStack {
-            PrimaryButton(title: "Complete 2 more to fly", enabled: false, action: onTakeoff)
+            PrimaryButton(title: "Take off", systemTrailing: "arrow.right", action: onTakeoff)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)

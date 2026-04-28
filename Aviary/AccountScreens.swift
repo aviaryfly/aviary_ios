@@ -338,17 +338,18 @@ struct ProfileScreen: View {
                                     profileRow(icon: "cert", label: "Certifications",
                                                value: certificationsValue,
                                                isGood: !demoStore.isOn && (primaryCertification?.verified ?? false),
+                                               tappable: true,
                                                divider: true)
                                 }
                                 .buttonStyle(.plain)
                                 Button { showEquipment = true } label: {
                                     profileRow(icon: "drone", label: "Equipment",
-                                               value: equipmentValue, divider: true)
+                                               value: equipmentValue, tappable: true, divider: true)
                                 }
                                 .buttonStyle(.plain)
                                 Button { showInsurance = true } label: {
                                     profileRow(icon: "shield", label: "Insurance",
-                                               value: insuranceValue, divider: true)
+                                               value: insuranceValue, tappable: true, divider: true)
                                 }
                                 .buttonStyle(.plain)
                                 profileRow(icon: "card", label: "Payouts",
@@ -356,6 +357,7 @@ struct ProfileScreen: View {
                                 Button { showEarnings = true } label: {
                                     profileRow(icon: "wallet", label: "Earnings",
                                                value: demoStore.isOn ? "$2,148.50 this week" : "No earnings yet",
+                                               tappable: true,
                                                divider: false)
                                 }
                                 .buttonStyle(.plain)
@@ -656,7 +658,8 @@ struct ProfileScreen: View {
     }
 
     private func profileRow(icon: String, label: String, value: String,
-                            isGood: Bool = false, divider: Bool) -> some View {
+                            isGood: Bool = false, tappable: Bool = false,
+                            divider: Bool) -> some View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10).fill(t.accentSoft)
@@ -672,7 +675,9 @@ struct ProfileScreen: View {
                     .foregroundStyle(isGood ? t.good : t.ink3)
             }
             Spacer()
-            AviaryIcon(name: "chevron-right", size: 16, color: t.ink4)
+            if tappable {
+                AviaryIcon(name: "chevron-right", size: 16, color: t.ink4)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -1186,9 +1191,49 @@ struct ClientRequestScreen: View {
     @State private var isPosting: Bool = false
     @State private var errorMessage: String?
 
-    private let types: [(label: String, icon: String)] = [
-        ("Real estate", "camera"), ("Inspection", "cert"),
-        ("Event", "star"), ("Mapping", "altitude")
+    private struct GigType {
+        let label: String
+        let icon: String
+        let address: String
+        let scheduleText: String
+        let scheduledHoursFromNow: Int
+        let durationMinutes: Int
+        let deliverablesSummary: String
+        let deliverables: [String]
+        let estimateText: String
+        let payoutCents: Int
+        let distanceMiles: Double
+    }
+
+    private let types: [GigType] = [
+        GigType(label: "Real estate", icon: "camera",
+                address: "1247 Vine St, Berkeley",
+                scheduleText: "Today, 3:30 PM",
+                scheduledHoursFromNow: 3, durationMinutes: 45,
+                deliverablesSummary: "12 photos + 60s flyover",
+                deliverables: ["12 exterior photos", "60-sec cinematic flyover", "Edited delivery set"],
+                estimateText: "$320–$380", payoutCents: 35000, distanceMiles: 1.2),
+        GigType(label: "Inspection", icon: "cert",
+                address: "88 Industrial Way, Oakland",
+                scheduleText: "Tomorrow, 10:00 AM",
+                scheduledHoursFromNow: 22, durationMinutes: 30,
+                deliverablesSummary: "Roof scan + thermal pass",
+                deliverables: ["Tight roof orbit (4K)", "Thermal pass + damage call-outs", "PDF report"],
+                estimateText: "$420–$480", payoutCents: 45000, distanceMiles: 6.4),
+        GigType(label: "Event", icon: "star",
+                address: "Tilden Park, Berkeley",
+                scheduleText: "Saturday, 4:00 PM",
+                scheduledHoursFromNow: 52, durationMinutes: 120,
+                deliverablesSummary: "90s aerial reel + stills",
+                deliverables: ["Ceremony aerial coverage", "Cinematic flyover", "60-sec highlight reel"],
+                estimateText: "$560–$640", payoutCents: 60000, distanceMiles: 3.1),
+        GigType(label: "Mapping", icon: "altitude",
+                address: "Stags Leap District, Napa",
+                scheduleText: "Friday, 8:00 AM",
+                scheduledHoursFromNow: 40, durationMinutes: 240,
+                deliverablesSummary: "12-acre orthomosaic",
+                deliverables: ["Orthomosaic at 2 cm/px", "NDVI multispectral map", "Boundary KML"],
+                estimateText: "$780–$880", payoutCents: 83000, distanceMiles: 42.0)
     ]
 
     var body: some View {
@@ -1214,7 +1259,7 @@ struct ClientRequestScreen: View {
                                             GridItem(.flexible(), spacing: 8)],
                                   spacing: 8) {
                             ForEach(Array(types.enumerated()), id: \.0) { idx, item in
-                                Button { typeIdx = idx } label: {
+                                Button { withAnimation(.easeInOut(duration: 0.2)) { typeIdx = idx } } label: {
                                     typeTile(label: item.label, icon: item.icon, active: idx == typeIdx)
                                 }
                                 .buttonStyle(.plain)
@@ -1224,9 +1269,9 @@ struct ClientRequestScreen: View {
 
                         AviaryCard(padding: 0) {
                             VStack(spacing: 0) {
-                                detailRow(icon: "pin", text: "1247 Vine St, Berkeley", divider: true)
-                                detailRow(icon: "clock", text: "Today, 3:30 PM", divider: true)
-                                detailRow(icon: "camera", text: "12 photos + 60s flyover", divider: false)
+                                detailRow(icon: "pin", text: selected.address, divider: true)
+                                detailRow(icon: "clock", text: selected.scheduleText, divider: true)
+                                detailRow(icon: selected.icon, text: selected.deliverablesSummary, divider: false)
                             }
                         }
                         .padding(.bottom, 12)
@@ -1236,7 +1281,7 @@ struct ClientRequestScreen: View {
                                 Text("Estimated")
                                     .font(AviaryFont.body(12))
                                     .foregroundStyle(t.ink3)
-                                Text("$320–$380")
+                                Text(selected.estimateText)
                                     .font(AviaryFont.mono(24, weight: .semibold))
                                     .foregroundStyle(t.ink)
                             }
@@ -1276,21 +1321,23 @@ struct ClientRequestScreen: View {
         }
     }
 
+    private var selected: GigType { types[typeIdx] }
+
     private func postGig() {
         guard !isPosting else { return }
         isPosting = true
         errorMessage = nil
-        let type = types[typeIdx]
+        let type = selected
         let draft = AviaryDataService.JobDraft(
             jobType: type.label.lowercased().replacingOccurrences(of: " ", with: "_"),
             title: type.label == "Real estate" ? "Real estate listing" : "\(type.label) request",
-            address: "1247 Vine St, Berkeley",
+            address: type.address,
             clientName: profile.fullName ?? profile.email,
-            distanceMiles: 1.2,
-            payoutCents: 35000,
-            scheduledAt: Calendar.current.date(byAdding: .hour, value: 3, to: Date()),
-            durationMinutes: 45,
-            deliverables: ["12 photos", "60-sec flyover", "Edited delivery set"]
+            distanceMiles: type.distanceMiles,
+            payoutCents: type.payoutCents,
+            scheduledAt: Calendar.current.date(byAdding: .hour, value: type.scheduledHoursFromNow, to: Date()),
+            durationMinutes: type.durationMinutes,
+            deliverables: type.deliverables
         )
         Task {
             do {
@@ -1333,7 +1380,6 @@ struct ClientRequestScreen: View {
                 .font(AviaryFont.body(14))
                 .foregroundStyle(t.ink)
             Spacer()
-            AviaryIcon(name: "chevron-right", size: 16, color: t.ink4)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

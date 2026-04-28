@@ -286,7 +286,7 @@ private struct RoleSelect: View {
                 .padding(.top, 8)
                 .padding(.bottom, 32)
 
-                Text("STEP 1 OF 4")
+                Text("CHOOSE YOUR ROLE")
                     .font(AviaryFont.body(13, weight: .semibold))
                     .tracking(0.04 * 13)
                     .foregroundStyle(t.accent)
@@ -378,6 +378,8 @@ private struct CertCheck: View {
     var onBack: () -> Void
     var onContinue: () -> Void
     @Environment(\.theme) private var t
+    @State private var faaStatus: FieldStatus = .pending
+    @State private var droneStatus: FieldStatus = .pending
 
     var body: some View {
         ZStack {
@@ -390,7 +392,7 @@ private struct CertCheck: View {
                     .padding(.top, 8)
                     .padding(.bottom, 24)
 
-                    Text("STEP 3 OF 4 · CERTIFICATIONS")
+                    Text("STEP 1 OF 2 · CERTIFICATIONS")
                         .font(AviaryFont.body(13, weight: .semibold))
                         .tracking(0.04 * 13)
                         .foregroundStyle(t.accent)
@@ -410,11 +412,11 @@ private struct CertCheck: View {
 
                     field(label: "FAA REMOTE PILOT CERTIFICATE",
                           value: "4081294-A",
-                          status: .verified,
+                          status: faaStatus,
                           hint: "Issued Mar 2024 · Expires Mar 2026")
                     field(label: "DRONE REGISTRATION",
                           value: "FA39SXKLP4",
-                          status: .verified, hint: nil)
+                          status: droneStatus, hint: nil)
                     field(label: "LIABILITY INSURANCE",
                           value: "$1M · SkyWatch",
                           status: .pending,
@@ -439,6 +441,14 @@ private struct CertCheck: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 28)
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation(.easeInOut(duration: 0.3)) { faaStatus = .verified }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation(.easeInOut(duration: 0.3)) { droneStatus = .verified }
             }
         }
     }

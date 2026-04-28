@@ -139,6 +139,63 @@ struct GigListScreen: View {
             clientMeta: "★ 5.0 · Enterprise client",
             icon: "altitude",
             coordinate: CLLocationCoordinate2D(latitude: 38.4090, longitude: -122.3206)
+        ),
+        DemoGig(
+            title: "Solar array inspection",
+            address: "1820 Edgewater Dr, Oakland",
+            distance: "5.6 mi",
+            payout: "$310",
+            schedule: "Sat · 11:00am · 45 min",
+            jobType: "Inspection",
+            duration: "45 min",
+            startText: "Saturday, 11:00 AM",
+            deliverables: [
+                "Thermal sweep of 240 panels",
+                "Hotspot call-outs (PDF)",
+                "Pre/post imagery"
+            ],
+            client: "Sunhouse Energy",
+            clientMeta: "★ 4.8 · 9 gigs posted",
+            icon: "altitude",
+            coordinate: CLLocationCoordinate2D(latitude: 37.7942, longitude: -122.2510)
+        ),
+        DemoGig(
+            title: "Real estate twilight set",
+            address: "910 Bay St, Sausalito",
+            distance: "8.2 mi",
+            payout: "$295",
+            schedule: "Tomorrow · 6:45pm · 40 min",
+            jobType: "Real estate",
+            duration: "40 min",
+            startText: "Tomorrow, 6:45 PM",
+            deliverables: [
+                "Twilight exterior photos",
+                "30-sec dusk flyover",
+                "Edited delivery set"
+            ],
+            client: "Bay Studios Realty",
+            clientMeta: "★ 4.7 · 14 gigs posted",
+            icon: "camera",
+            coordinate: CLLocationCoordinate2D(latitude: 37.8590, longitude: -122.4853)
+        ),
+        DemoGig(
+            title: "Pier time-lapse setup",
+            address: "Embarcadero, San Francisco",
+            distance: "4.0 mi",
+            payout: "$410",
+            schedule: "Friday · 7:00am · 90 min",
+            jobType: "Construction",
+            duration: "90 min",
+            startText: "Friday, 7:00 AM",
+            deliverables: [
+                "Site overview at golden hour",
+                "Top-down dock map",
+                "30-sec edited reveal"
+            ],
+            client: "Pier 39 Holdings",
+            clientMeta: "★ 4.9 · Premium client",
+            icon: "briefcase",
+            coordinate: CLLocationCoordinate2D(latitude: 37.8087, longitude: -122.4098)
         )
     ]
 
@@ -233,7 +290,10 @@ struct GigListScreen: View {
     }
 
     private var subtitle: String {
-        if demoStore.isOn { return "14 within 10 mi" }
+        if demoStore.isOn {
+            let nearby = demoGigs.filter { $0.distanceValue < 10 }.count
+            return "\(nearby) within 10 mi · \(demoGigs.count) open"
+        }
         if isLoading { return "Loading nearby requests" }
         if jobs.isEmpty { return "0 open requests" }
         return "\(jobs.count) open request\(jobs.count == 1 ? "" : "s")"
@@ -405,7 +465,6 @@ struct GigDetailScreen: View {
                     HStack {
                         circleBtn(icon: "arrow-left") { dismiss() }
                         Spacer()
-                        circleBtn(icon: "upload") {}
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
@@ -509,15 +568,11 @@ struct GigDetailScreen: View {
                     .padding(.top, 14)
             }
 
-            HStack(spacing: 10) {
-                SecondaryButton(title: "Save")
-                    .frame(maxWidth: 110)
-                PrimaryButton(title: isAccepting ? "Accepting..." : "Accept gig",
-                              systemTrailing: "arrow.right",
-                              enabled: !isAccepting,
-                              action: acceptGig)
-            }
-            .padding(.top, 20)
+            PrimaryButton(title: isAccepting ? "Accepting..." : "Accept gig",
+                          systemTrailing: "arrow.right",
+                          enabled: !isAccepting,
+                          action: acceptGig)
+                .padding(.top, 20)
         }
     }
 

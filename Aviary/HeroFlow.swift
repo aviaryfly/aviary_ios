@@ -4,9 +4,9 @@ struct HeroFlowView: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
 
-    enum Stage { case ping, accepting, confirmed, enRoute }
+    enum Stage { case ping, accepting, confirmed, enRoute, expired }
     @State private var stage: Stage = .ping
-    @State private var seconds: Int = 14
+    @State private var seconds: Int = 15
     @State private var timer: Timer?
 
     var body: some View {
@@ -72,6 +72,7 @@ struct HeroFlowView: View {
         case .accepting: acceptingCard
         case .confirmed: confirmedCard
         case .enRoute: enRouteCard
+        case .expired: expiredCard
         }
     }
 
@@ -183,22 +184,35 @@ struct HeroFlowView: View {
             Text("1247 Vine St · pre-flight checklist ready")
                 .font(AviaryFont.body(13))
                 .foregroundStyle(t.ink3)
-            HStack(spacing: 10) {
-                SecondaryButton(title: "Reset demo") {
-                    stage = .ping
-                    seconds = 14
-                    startTimer()
-                }
-                .frame(maxWidth: 150)
-                PrimaryButton(title: "Pre-flight", systemTrailing: "arrow.right") {
-                    dismiss()
-                }
+            PrimaryButton(title: "Pre-flight", systemTrailing: "arrow.right") {
+                dismiss()
             }
             .padding(.top, 10)
         }
         .padding(.horizontal, 22)
         .padding(.top, 22)
         .padding(.bottom, 28)
+        .background(sheetBg)
+    }
+
+    private var expiredCard: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(t.ink3.opacity(0.18))
+                    .frame(width: 72, height: 72)
+                AviaryIcon(name: "clock", size: 30, stroke: 2.5, color: t.ink3)
+            }
+            Text("Ping expired")
+                .font(AviaryFont.display(26, weight: .bold))
+                .tracking(-0.025 * 26)
+                .foregroundStyle(t.ink)
+            Text("Another pilot accepted this gig.")
+                .font(AviaryFont.body(14))
+                .foregroundStyle(t.ink3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .padding(.horizontal, 22)
         .background(sheetBg)
     }
 
@@ -241,6 +255,14 @@ struct HeroFlowView: View {
                     seconds -= 1
                 } else {
                     timer?.invalidate()
+                    if stage == .ping {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            stage = .expired
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                            if stage == .expired { dismiss() }
+                        }
+                    }
                 }
             }
         }
