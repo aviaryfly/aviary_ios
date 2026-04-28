@@ -4,12 +4,13 @@ struct AuthScreen: View {
     enum Mode { case signUp, signIn }
 
     var role: UserRole
+    var initialMode: Mode = .signUp
     var onBack: () -> Void
 
     @EnvironmentObject private var auth: AuthViewModel
     @Environment(\.theme) private var t
 
-    @State private var mode: Mode = .signUp
+    @State private var mode: Mode
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     @State private var email: String = ""
@@ -18,9 +19,17 @@ struct AuthScreen: View {
     @State private var passwordTouched: Bool = false
     @State private var firstNameTouched: Bool = false
     @State private var lastNameTouched: Bool = false
+    @State private var resetSentMessage: String?
     @FocusState private var focused: Field?
 
     private enum Field { case firstName, lastName, email, password }
+
+    init(role: UserRole, initialMode: Mode = .signUp, onBack: @escaping () -> Void) {
+        self.role = role
+        self.initialMode = initialMode
+        self.onBack = onBack
+        self._mode = State(initialValue: initialMode)
+    }
 
     var body: some View {
         Group {
@@ -124,6 +133,24 @@ struct AuthScreen: View {
                             .padding(.bottom, 8)
                     }
 
+                    if mode == .signIn {
+                        HStack {
+                            Spacer()
+                            Button(action: requestPasswordReset) {
+                                Text("Forgot password?")
+                                    .font(AviaryFont.body(13, weight: .semibold))
+                                    .foregroundStyle(t.accent)
+                            }
+                            .disabled(auth.isWorking)
+                        }
+                        .padding(.bottom, 8)
+
+                        if let resetSentMessage {
+                            inlineMessage(resetSentMessage, isError: false)
+                                .padding(.bottom, 8)
+                        }
+                    }
+
                     if let error = auth.errorMessage {
                         inlineMessage(error, isError: true)
                             .padding(.top, 4)
@@ -171,6 +198,7 @@ struct AuthScreen: View {
         .onChange(of: mode) { _, _ in
             password = ""
             passwordTouched = false
+            resetSentMessage = nil
         }
         .onChange(of: focused) { old, _ in
             switch old {
@@ -356,6 +384,20 @@ struct AuthScreen: View {
         lastNameTouched = false
         emailTouched = false
         passwordTouched = false
+    }
+
+    private func requestPasswordReset() {
+        focused = nil
+        emailTouched = true
+        resetSentMessage = nil
+        guard isEmailValid else { return }
+        let emailValue = trimmedEmail
+        Task {
+            let sent = await auth.requestPasswordReset(email: emailValue)
+            if sent {
+                resetSentMessage = "If that email is registered, we've sent a password reset link."
+            }
+        }
     }
 
     private func submit() {

@@ -164,6 +164,28 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    func requestPasswordReset(email: String) async -> Bool {
+        errorMessage = nil
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = "Enter your email above first."
+            return false
+        }
+        if !SupabaseConfig.isConfigured {
+            errorMessage = "Supabase isn't configured yet. Add your project URL and anon key to Aviary/Secrets.plist."
+            return false
+        }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await client.auth.resetPasswordForEmail(trimmedEmail)
+            return true
+        } catch {
+            errorMessage = friendlyMessage(for: error)
+            return false
+        }
+    }
+
     func signOut() async {
         errorMessage = nil
         do {

@@ -4,6 +4,7 @@ struct OnboardingFlow: View {
     @EnvironmentObject private var auth: AuthViewModel
     @State private var step: Step = .welcome
     @State private var role: UserRole = .pilot
+    @State private var authMode: AuthScreen.Mode = .signUp
     @Environment(\.theme) private var t
 
     enum Step { case welcome, roleSelect, cert, auth }
@@ -14,29 +15,43 @@ struct OnboardingFlow: View {
             case .welcome:
                 WelcomeHero(
                     onContinue: { step = .roleSelect },
-                    onSignIn: { step = .auth }
+                    onSignIn: {
+                        authMode = .signIn
+                        step = .auth
+                    }
                 )
             case .roleSelect:
                 RoleSelect(
                     onBack: { step = .welcome },
                     onContinue: { selected in
                         role = selected
+                        authMode = .signUp
                         step = (selected == .pilot) ? .cert : .auth
                     }
                 )
             case .cert:
                 CertCheck(
                     onBack: { step = .roleSelect },
-                    onContinue: { step = .auth }
+                    onContinue: {
+                        authMode = .signUp
+                        step = .auth
+                    }
                 )
             case .auth:
                 AuthScreen(
                     role: role,
+                    initialMode: authMode,
                     onBack: {
                         auth.errorMessage = nil
-                        step = (role == .pilot) ? .cert : .roleSelect
+                        switch authMode {
+                        case .signIn:
+                            step = .welcome
+                        case .signUp:
+                            step = (role == .pilot) ? .cert : .roleSelect
+                        }
                     }
                 )
+                .id(authMode)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: step)
