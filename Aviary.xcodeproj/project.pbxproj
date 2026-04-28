@@ -6,6 +6,27 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0BA640A62FA05D6000A8C204 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640A52FA05D6000A8C204 /* GoogleSignIn */; };
+		0BA640A82FA05D6000A8C204 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640A72FA05D6000A8C204 /* GoogleSignInSwift */; };
+		0BA640AB2FA05D8900A8C204 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640AA2FA05D8900A8C204 /* Stripe */; };
+		0BA640AD2FA05D8900A8C204 /* StripeApplePay in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640AC2FA05D8900A8C204 /* StripeApplePay */; };
+		0BA640AF2FA05D8900A8C204 /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640AE2FA05D8900A8C204 /* StripeCardScan */; };
+		0BA640B12FA05D8900A8C204 /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640B02FA05D8900A8C204 /* StripeConnect */; };
+		0BA640B32FA05D8900A8C204 /* StripeFinancialConnections in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640B22FA05D8900A8C204 /* StripeFinancialConnections */; };
+		0BA640B52FA05D8900A8C204 /* StripeIdentity in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640B42FA05D8900A8C204 /* StripeIdentity */; };
+		0BA640B72FA05D8900A8C204 /* StripeIssuing in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640B62FA05D8900A8C204 /* StripeIssuing */; };
+		0BA640B92FA05D8900A8C204 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640B82FA05D8900A8C204 /* StripePaymentSheet */; };
+		0BA640BB2FA05D8900A8C204 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640BA2FA05D8900A8C204 /* StripePayments */; };
+		0BA640BD2FA05D8900A8C204 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640BC2FA05D8900A8C204 /* StripePaymentsUI */; };
+		0BA640C02FA05DAF00A8C204 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640BF2FA05DAF00A8C204 /* Auth */; };
+		0BA640C22FA05DAF00A8C204 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640C12FA05DAF00A8C204 /* Functions */; };
+		0BA640C42FA05DAF00A8C204 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640C32FA05DAF00A8C204 /* PostgREST */; };
+		0BA640C62FA05DAF00A8C204 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640C52FA05DAF00A8C204 /* Realtime */; };
+		0BA640C82FA05DAF00A8C204 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640C72FA05DAF00A8C204 /* Storage */; };
+		0BA640CA2FA05DAF00A8C204 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0BA640C92FA05DAF00A8C204 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0BA640742FA04CCF00A8C204 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +73,24 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0BA640A62FA05D6000A8C204 /* GoogleSignIn in Frameworks */,
+				0BA640BB2FA05D8900A8C204 /* StripePayments in Frameworks */,
+				0BA640AD2FA05D8900A8C204 /* StripeApplePay in Frameworks */,
+				0BA640A82FA05D6000A8C204 /* GoogleSignInSwift in Frameworks */,
+				0BA640C22FA05DAF00A8C204 /* Functions in Frameworks */,
+				0BA640B32FA05D8900A8C204 /* StripeFinancialConnections in Frameworks */,
+				0BA640C82FA05DAF00A8C204 /* Storage in Frameworks */,
+				0BA640B92FA05D8900A8C204 /* StripePaymentSheet in Frameworks */,
+				0BA640BD2FA05D8900A8C204 /* StripePaymentsUI in Frameworks */,
+				0BA640C02FA05DAF00A8C204 /* Auth in Frameworks */,
+				0BA640C42FA05DAF00A8C204 /* PostgREST in Frameworks */,
+				0BA640AF2FA05D8900A8C204 /* StripeCardScan in Frameworks */,
+				0BA640C62FA05DAF00A8C204 /* Realtime in Frameworks */,
+				0BA640B12FA05D8900A8C204 /* StripeConnect in Frameworks */,
+				0BA640CA2FA05DAF00A8C204 /* Supabase in Frameworks */,
+				0BA640AB2FA05D8900A8C204 /* Stripe in Frameworks */,
+				0BA640B72FA05D8900A8C204 /* StripeIssuing in Frameworks */,
+				0BA640B52FA05D8900A8C204 /* StripeIdentity in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +151,24 @@
 			);
 			name = Aviary;
 			packageProductDependencies = (
+				0BA640A52FA05D6000A8C204 /* GoogleSignIn */,
+				0BA640A72FA05D6000A8C204 /* GoogleSignInSwift */,
+				0BA640AA2FA05D8900A8C204 /* Stripe */,
+				0BA640AC2FA05D8900A8C204 /* StripeApplePay */,
+				0BA640AE2FA05D8900A8C204 /* StripeCardScan */,
+				0BA640B02FA05D8900A8C204 /* StripeConnect */,
+				0BA640B22FA05D8900A8C204 /* StripeFinancialConnections */,
+				0BA640B42FA05D8900A8C204 /* StripeIdentity */,
+				0BA640B62FA05D8900A8C204 /* StripeIssuing */,
+				0BA640B82FA05D8900A8C204 /* StripePaymentSheet */,
+				0BA640BA2FA05D8900A8C204 /* StripePayments */,
+				0BA640BC2FA05D8900A8C204 /* StripePaymentsUI */,
+				0BA640BF2FA05DAF00A8C204 /* Auth */,
+				0BA640C12FA05DAF00A8C204 /* Functions */,
+				0BA640C32FA05DAF00A8C204 /* PostgREST */,
+				0BA640C52FA05DAF00A8C204 /* Realtime */,
+				0BA640C72FA05DAF00A8C204 /* Storage */,
+				0BA640C92FA05DAF00A8C204 /* Supabase */,
 			);
 			productName = Aviary;
 			productReference = 0BA640662FA04CCD00A8C204 /* Aviary.app */;
@@ -195,6 +252,11 @@
 			);
 			mainGroup = 0BA6405D2FA04CCD00A8C204;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0BA640A42FA05D6000A8C204 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
+				0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0BA640672FA04CCD00A8C204 /* Products */;
 			projectDirPath = "";
@@ -570,6 +632,126 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0BA640A42FA05D6000A8C204 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
+		0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 25.11.0;
+			};
+		};
+		0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase-community/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0BA640A52FA05D6000A8C204 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A42FA05D6000A8C204 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		0BA640A72FA05D6000A8C204 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A42FA05D6000A8C204 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		0BA640AA2FA05D8900A8C204 /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = Stripe;
+		};
+		0BA640AC2FA05D8900A8C204 /* StripeApplePay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeApplePay;
+		};
+		0BA640AE2FA05D8900A8C204 /* StripeCardScan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeCardScan;
+		};
+		0BA640B02FA05D8900A8C204 /* StripeConnect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeConnect;
+		};
+		0BA640B22FA05D8900A8C204 /* StripeFinancialConnections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeFinancialConnections;
+		};
+		0BA640B42FA05D8900A8C204 /* StripeIdentity */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeIdentity;
+		};
+		0BA640B62FA05D8900A8C204 /* StripeIssuing */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeIssuing;
+		};
+		0BA640B82FA05D8900A8C204 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripePaymentSheet;
+		};
+		0BA640BA2FA05D8900A8C204 /* StripePayments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripePayments;
+		};
+		0BA640BC2FA05D8900A8C204 /* StripePaymentsUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640A92FA05D8900A8C204 /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripePaymentsUI;
+		};
+		0BA640BF2FA05DAF00A8C204 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		0BA640C12FA05DAF00A8C204 /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		0BA640C32FA05DAF00A8C204 /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		0BA640C52FA05DAF00A8C204 /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		0BA640C72FA05DAF00A8C204 /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		0BA640C92FA05DAF00A8C204 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BA640BE2FA05DAF00A8C204 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0BA6405E2FA04CCD00A8C204 /* Project object */;
 }
