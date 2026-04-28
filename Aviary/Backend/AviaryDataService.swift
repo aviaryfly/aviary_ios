@@ -91,6 +91,43 @@ final class AviaryDataService {
             .execute()
     }
 
+    func recordHandoff(jobID: UUID, deliverables: [String]) async throws {
+        guard SupabaseConfig.isConfigured else { throw AviaryDataError.notConfigured }
+        let update = JobHandoffUpdate(status: "in_review", deliverables: deliverables)
+        try await client
+            .from("jobs")
+            .update(update)
+            .eq("id", value: jobID)
+            .execute()
+    }
+
+    func completeJob(jobID: UUID,
+                     pilotID: UUID,
+                     rating: Int,
+                     tags: [String],
+                     note: String) async throws {
+        guard SupabaseConfig.isConfigured else { throw AviaryDataError.notConfigured }
+        let update = JobCompletionUpdate(status: "completed")
+        try await client
+            .from("jobs")
+            .update(update)
+            .eq("id", value: jobID)
+            .execute()
+
+        // Best-effort review insert: fail silently if the table isn't provisioned.
+        let review = JobReviewInsert(
+            job_id: jobID,
+            pilot_id: pilotID,
+            rating: rating,
+            tags: tags,
+            note: note.isEmpty ? nil : note
+        )
+        try? await client
+            .from("job_reviews")
+            .insert(review)
+            .execute()
+    }
+
     func conversations(for profile: UserProfile) async throws -> [AviaryConversation] {
         guard SupabaseConfig.isConfigured else { throw AviaryDataError.notConfigured }
         let conversations: [AviaryConversation]
@@ -199,6 +236,23 @@ private struct JobInsert: Encodable {
 private struct JobAssignmentUpdate: Encodable {
     let pilot_id: UUID
     let status: String
+}
+
+private struct JobHandoffUpdate: Encodable {
+    let status: String
+    let deliverables: [String]
+}
+
+private struct JobCompletionUpdate: Encodable {
+    let status: String
+}
+
+private struct JobReviewInsert: Encodable {
+    let job_id: UUID
+    let pilot_id: UUID
+    let rating: Int
+    let tags: [String]
+    let note: String?
 }
 
 private struct ConversationInsert: Encodable {

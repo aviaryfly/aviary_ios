@@ -289,21 +289,29 @@ struct FlyHubScreen: View {
                 .environment(\.theme, t)
         }
         .sheet(isPresented: $showUpload) {
-            UploadScreen(onSubmit: {
+            UploadScreen(job: activeJob, onSubmit: { _ in
                 showUpload = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     showReview = true
                 }
             })
             .environment(\.theme, t)
+            .environmentObject(demoStore)
         }
         .sheet(isPresented: $showReview) {
-            ReviewCompleteScreen()
+            ReviewCompleteScreen(job: activeJob,
+                                 pilotID: profile.id,
+                                 onCompleted: {
+                                     activeJob = nil
+                                     Task { await loadActiveJob() }
+                                 })
                 .environment(\.theme, t)
+                .environmentObject(demoStore)
         }
         .sheet(isPresented: $showMapHome) {
-            MapHomeScreen()
+            NearbyGigsMapScreen(activeJob: activeJob)
                 .environment(\.theme, t)
+                .environmentObject(demoStore)
         }
         .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
             await loadActiveJob()

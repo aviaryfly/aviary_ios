@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Pre-flight checklist
 
@@ -418,106 +419,275 @@ struct InFlightScreen: View {
 
 // MARK: - Deliverables upload
 
+struct UploadAsset: Identifiable {
+    let id = UUID()
+    var pickerItem: PhotosPickerItem
+    var image: Image?
+    var isVideo: Bool
+    var sizeBytes: Int64
+    var progress: Double
+    var done: Bool
+    var failed: Bool
+}
+
 struct UploadScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
-    var onSubmit: () -> Void = {}
+    @EnvironmentObject private var demoStore: DemoModeStore
+
+    let job: AviaryJob?
+    var onSubmit: ([UploadAsset]) -> Void = { _ in }
+
+    @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var assets: [UploadAsset] = []
+    @State private var isPickerPresented: Bool = false
+    @State private var isSubmitting: Bool = false
+    @State private var errorMessage: String?
+
+    private var deliverables: [String] {
+        job?.displayDeliverables ?? [
+            "12 exterior photos · 4K",
+            "60-sec cinematic flyover",
+            "Edited delivery set"
+        ]
+    }
+
+    private var doneCount: Int { assets.filter(\.done).count }
+    private var totalProgress: Double {
+        assets.isEmpty ? 0 : assets.map(\.progress).reduce(0, +) / Double(assets.count)
+    }
+    private var totalBytes: Int64 { assets.map(\.sizeBytes).reduce(0, +) }
+    private var canSubmit: Bool {
+        !assets.isEmpty && doneCount == assets.count && !isSubmitting
+    }
 
     var body: some View {
         ZStack {
             t.bg.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 12) {
-                        Button { dismiss() } label: {
-                            AviaryIcon(name: "x", size: 22, color: t.ink)
-                        }
-                        Text("Deliverables")
-                            .font(AviaryFont.body(16, weight: .semibold))
-                            .foregroundStyle(t.ink)
-                        Spacer()
-                        Chip(text: "8 of 13", style: .accent)
-                    }
-                    .padding(.bottom, 16)
+                    header
+                        .padding(.bottom, 16)
 
                     Text("Hand off your work")
                         .font(AviaryFont.display(26, weight: .bold))
                         .tracking(-0.02 * 26)
                         .foregroundStyle(t.ink)
                         .padding(.bottom, 4)
-                    Text("Auto-uploading over Wi-Fi · 142 MB left")
+                    Text(subtitleText)
                         .font(AviaryFont.body(14))
                         .foregroundStyle(t.ink3)
                         .padding(.bottom, 16)
 
-                    AviaryCard(padding: 14, shadowed: true) {
-                        VStack(spacing: 8) {
-                            HStack(spacing: 10) {
-                                AviaryIcon(name: "upload", size: 18, color: t.accent)
-                                Text("Uploading 8 / 13")
-                                    .font(AviaryFont.body(13, weight: .semibold))
-                                    .foregroundStyle(t.ink)
-                                Spacer()
-                                Text("62%")
-                                    .font(AviaryFont.mono(13, weight: .semibold))
-                                    .foregroundStyle(t.ink3)
-                            }
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(t.surface2).frame(height: 6)
-                                GeometryReader { geo in
-                                    Capsule().fill(t.accent)
-                                        .frame(width: geo.size.width * 0.62, height: 6)
-                                }
-                                .frame(height: 6)
-                            }
-                        }
+                    if !assets.isEmpty {
+                        progressCard
+                            .padding(.bottom, 16)
                     }
-                    .padding(.bottom, 16)
 
-                    SectionTitle(text: "12 photos · 4K")
-                        .padding(.bottom, 6)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                        ForEach(0..<8, id: \.self) { i in thumb(idx: i, done: i < 5) }
+                    if !deliverables.isEmpty {
+                        SectionTitle(text: "Required deliverables")
+                            .padding(.bottom, 6)
+                        deliverablesList
+                            .padding(.bottom, 18)
                     }
-                    .padding(.bottom, 18)
 
-                    SectionTitle(text: "1 cinematic flyover")
+                    SectionTitle(text: assets.isEmpty ? "Add photos & videos" : "Selected · \(assets.count)")
                         .padding(.bottom, 6)
-                    thumb(idx: 99, done: true, video: true)
-                        .frame(width: 110, height: 110)
+                    pickerArea
+                        .padding(.bottom, 18)
 
-                    PrimaryButton(title: "Submit & finish gig", action: onSubmit)
-                        .padding(.top, 24)
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(AviaryFont.body(12))
+                            .foregroundStyle(t.bad)
+                            .padding(.bottom, 12)
+                    }
+
+                    PrimaryButton(title: submitButtonTitle,
+                                  enabled: canSubmit,
+                                  action: submit)
+                        .padding(.top, 8)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
         }
+        .photosPicker(isPresented: $isPickerPresented,
+                      selection: $pickerItems,
+                      maxSelectionCount: 20,
+                      matching: .any(of: [.images, .videos]),
+                      preferredItemEncoding: .compatible)
+        .onChange(of: pickerItems) { _, new in
+            ingest(new)
+            pickerItems = []
+        }
     }
 
-    private func thumb(idx: Int, done: Bool, video: Bool = false) -> some View {
-        ZStack {
-            LinearGradient(colors: [t.accentSoft, t.surface2],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
+    private var header: some View {
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                AviaryIcon(name: "x", size: 22, color: t.ink)
+            }
+            Text("Deliverables")
+                .font(AviaryFont.body(16, weight: .semibold))
+                .foregroundStyle(t.ink)
+            Spacer()
+            Chip(text: "\(doneCount) of \(assets.count)", style: .accent)
+        }
+    }
 
-            Canvas { ctx, size in
-                var p = Path()
-                p.move(to: .init(x: 0, y: size.height * 0.7))
-                p.addLine(to: .init(x: size.width * 0.3, y: size.height * 0.5))
-                p.addLine(to: .init(x: size.width * 0.5, y: size.height * 0.6))
-                p.addLine(to: .init(x: size.width * 0.7, y: size.height * 0.4))
-                p.addLine(to: .init(x: size.width, y: size.height * 0.55))
-                p.addLine(to: .init(x: size.width, y: size.height))
-                p.addLine(to: .init(x: 0, y: size.height))
-                p.closeSubpath()
-                ctx.fill(p, with: .color(t.ink2.opacity(0.4)))
-                ctx.fill(Path(ellipseIn: .init(x: size.width * 0.7, y: size.height * 0.18,
-                                                width: 12, height: 12)),
-                         with: .color(t.warn.opacity(0.7)))
+    private var subtitleText: String {
+        if assets.isEmpty {
+            return "Pick photos and videos from your library — we'll auto-upload them once selected."
+        }
+        if doneCount < assets.count {
+            return "Auto-uploading over Wi-Fi · \(formattedBytes(totalBytes)) staged"
+        }
+        return "All \(assets.count) ready · tap submit to wrap up the gig"
+    }
+
+    private var submitButtonTitle: String {
+        if isSubmitting { return "Submitting…" }
+        if assets.isEmpty { return "Add files to submit" }
+        if doneCount < assets.count { return "Uploading \(doneCount)/\(assets.count)…" }
+        return "Submit & finish gig"
+    }
+
+    private var progressCard: some View {
+        AviaryCard(padding: 14, shadowed: true) {
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    AviaryIcon(name: "upload", size: 18, color: t.accent)
+                    Text("Uploading \(doneCount) / \(assets.count)")
+                        .font(AviaryFont.body(13, weight: .semibold))
+                        .foregroundStyle(t.ink)
+                    Spacer()
+                    Text("\(Int(totalProgress * 100))%")
+                        .font(AviaryFont.mono(13, weight: .semibold))
+                        .foregroundStyle(t.ink3)
+                }
+                ZStack(alignment: .leading) {
+                    Capsule().fill(t.surface2).frame(height: 6)
+                    GeometryReader { geo in
+                        Capsule().fill(t.accent)
+                            .frame(width: max(0, geo.size.width * totalProgress),
+                                   height: 6)
+                            .animation(.easeInOut(duration: 0.2), value: totalProgress)
+                    }
+                    .frame(height: 6)
+                }
+            }
+        }
+    }
+
+    private var deliverablesList: some View {
+        VStack(spacing: 8) {
+            ForEach(deliverables, id: \.self) { item in
+                HStack(spacing: 10) {
+                    AviaryIcon(name: "check-circle", size: 16, color: t.ink3)
+                    Text(item)
+                        .font(AviaryFont.body(13))
+                        .foregroundStyle(t.ink2)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 10).fill(t.surface))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(t.line))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pickerArea: some View {
+        if assets.isEmpty {
+            Button { isPickerPresented = true } label: {
+                emptyDropzone
+            }
+            .buttonStyle(PressableButtonStyle())
+        } else {
+            VStack(spacing: 12) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4),
+                          spacing: 6) {
+                    ForEach(assets) { asset in thumb(asset: asset) }
+                    addMoreTile
+                }
+            }
+        }
+    }
+
+    private var emptyDropzone: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle().fill(t.accentSoft)
+                AviaryIcon(name: "upload", size: 22, color: t.accent)
+            }
+            .frame(width: 56, height: 56)
+            Text("Add photos & videos")
+                .font(AviaryFont.body(15, weight: .semibold))
+                .foregroundStyle(t.ink)
+            Text("Tap to choose from your library")
+                .font(AviaryFont.body(12))
+                .foregroundStyle(t.ink3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(t.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(t.lineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+        )
+    }
+
+    private var addMoreTile: some View {
+        Button { isPickerPresented = true } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(t.surface)
+                AviaryIcon(name: "plus", size: 22, color: t.ink3)
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(t.lineStrong, style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+            )
+        }
+        .buttonStyle(PressableButtonStyle())
+    }
+
+    private func thumb(asset: UploadAsset) -> some View {
+        ZStack {
+            if let image = asset.image {
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(colors: [t.accentSoft, t.surface2],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
             }
 
-            if done {
+            // Dim overlay while uploading
+            if !asset.done {
+                Rectangle().fill(.black.opacity(0.25))
+            }
+
+            if !asset.done && !asset.failed {
+                VStack {
+                    Spacer()
+                    HStack {
+                        ProgressView(value: asset.progress)
+                            .progressViewStyle(.linear)
+                            .tint(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.bottom, 6)
+                    }
+                }
+            }
+
+            if asset.done {
                 VStack {
                     HStack {
                         Spacer()
@@ -531,24 +701,142 @@ struct UploadScreen: View {
                     Spacer()
                 }
             }
-            if video {
+            if asset.failed {
+                VStack {
+                    HStack {
+                        Spacer()
+                        ZStack {
+                            Circle().fill(t.bad)
+                            Text("!").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        }
+                        .frame(width: 18, height: 18)
+                        .padding(4)
+                    }
+                    Spacer()
+                }
+            }
+            if asset.isVideo {
                 VStack {
                     Spacer()
                     HStack {
-                        Text("0:42")
+                        AviaryIcon(name: "play", size: 11, color: .white)
+                        Text("video")
                             .font(AviaryFont.mono(9, weight: .semibold))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
-                            .background(Capsule().fill(.black.opacity(0.6)))
-                            .padding(4)
-                        Spacer()
                     }
+                    .padding(.horizontal, 5).padding(.vertical, 2)
+                    .background(Capsule().fill(.black.opacity(0.6)))
+                    .padding(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(t.line))
+    }
+
+    // MARK: - Actions
+
+    private func ingest(_ items: [PhotosPickerItem]) {
+        for item in items {
+            let isVideo = item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) })
+            let asset = UploadAsset(
+                pickerItem: item,
+                image: nil,
+                isVideo: isVideo,
+                sizeBytes: 0,
+                progress: 0,
+                done: false,
+                failed: false
+            )
+            assets.append(asset)
+            Task { await loadAndUpload(assetID: asset.id, item: item, isVideo: isVideo) }
+        }
+    }
+
+    private func loadAndUpload(assetID: UUID, item: PhotosPickerItem, isVideo: Bool) async {
+        // Load thumbnail/preview
+        if !isVideo, let data = try? await item.loadTransferable(type: Data.self),
+           let uiImage = UIImage(data: data) {
+            await MainActor.run {
+                update(id: assetID) {
+                    $0.image = Image(uiImage: uiImage)
+                    $0.sizeBytes = Int64(data.count)
+                }
+            }
+        } else if isVideo, let data = try? await item.loadTransferable(type: Data.self) {
+            await MainActor.run {
+                update(id: assetID) { $0.sizeBytes = Int64(data.count) }
+            }
+        }
+
+        // Simulate upload progress (real backend storage isn't wired yet)
+        let steps = 18
+        for i in 1...steps {
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            await MainActor.run {
+                update(id: assetID) { $0.progress = Double(i) / Double(steps) }
+            }
+        }
+        await MainActor.run {
+            update(id: assetID) {
+                $0.progress = 1
+                $0.done = true
+            }
+        }
+    }
+
+    private func update(id: UUID, _ mutate: (inout UploadAsset) -> Void) {
+        guard let idx = assets.firstIndex(where: { $0.id == id }) else { return }
+        var copy = assets[idx]
+        mutate(&copy)
+        assets[idx] = copy
+    }
+
+    private func submit() {
+        guard canSubmit else { return }
+        isSubmitting = true
+        errorMessage = nil
+        Task {
+            // Persist deliverable count to the active job, if real
+            if !demoStore.isOn, let job {
+                let summary = describeDeliverables()
+                do {
+                    try await AviaryDataService.shared.recordHandoff(
+                        jobID: job.id,
+                        deliverables: summary
+                    )
+                } catch {
+                    await MainActor.run {
+                        errorMessage = error.localizedDescription
+                        isSubmitting = false
+                    }
+                    return
+                }
+            }
+            await MainActor.run {
+                isSubmitting = false
+                onSubmit(assets)
+            }
+        }
+    }
+
+    private func describeDeliverables() -> [String] {
+        let photos = assets.filter { !$0.isVideo }.count
+        let videos = assets.filter(\.isVideo).count
+        var items: [String] = []
+        if photos > 0 { items.append("\(photos) photo\(photos == 1 ? "" : "s") · 4K") }
+        if videos > 0 { items.append("\(videos) video\(videos == 1 ? "" : "s")") }
+        if items.isEmpty { items = deliverables }
+        return items
+    }
+
+    private func formattedBytes(_ bytes: Int64) -> String {
+        let mb = Double(bytes) / 1_000_000
+        if mb < 1 { return String(format: "%.0f KB", Double(bytes) / 1_000) }
+        if mb < 1000 { return String(format: "%.0f MB", mb) }
+        return String(format: "%.1f GB", mb / 1000)
     }
 }
 
@@ -557,8 +845,25 @@ struct UploadScreen: View {
 struct ReviewCompleteScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var demoStore: DemoModeStore
+
+    let job: AviaryJob?
+    let pilotID: UUID?
+    var onCompleted: () -> Void = {}
+
     @State private var stars: Int = 5
     @State private var tags: Set<String> = []
+    @State private var note: String = ""
+    @State private var isSubmitting: Bool = false
+    @State private var errorMessage: String?
+
+    private let availableTags = ["Clear brief", "Fair pay", "Easy site", "Friendly", "On time", "Tough access"]
+
+    private var clientName: String { job?.displayClient ?? "Marin Realty Co." }
+    private var payoutText: String {
+        guard let cents = job?.payoutCents else { return "$340.00" }
+        return String(format: "$%.2f", Double(cents) / 100)
+    }
 
     var body: some View {
         ZStack {
@@ -592,7 +897,7 @@ struct ReviewCompleteScreen: View {
                             .font(AviaryFont.display(28, weight: .bold))
                             .tracking(-0.025 * 28)
                             .foregroundStyle(t.ink)
-                        Text("+$340.00")
+                        Text("+\(payoutText)")
                             .font(AviaryFont.mono(36, weight: .semibold))
                             .foregroundStyle(t.accent)
                             .padding(.top, 6)
@@ -603,25 +908,40 @@ struct ReviewCompleteScreen: View {
 
                         ratingCard
                             .padding(.top, 32)
+                        noteCard
+                            .padding(.top, 12)
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(AviaryFont.body(12))
+                                .foregroundStyle(t.bad)
+                                .padding(.top, 12)
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 24)
                 }
 
-                PrimaryButton(title: "Submit & find next gig") { dismiss() }
+                PrimaryButton(title: submitTitle,
+                              enabled: !isSubmitting,
+                              action: submit)
                     .padding(.horizontal, 24)
                     .padding(.bottom, 28)
             }
         }
     }
 
+    private var submitTitle: String {
+        isSubmitting ? "Submitting…" : "Submit & find next gig"
+    }
+
     private var ratingCard: some View {
         AviaryCard(padding: 18) {
-            VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                    Avatar(size: 40, initials: "MR", background: t.accentSoft)
+                    Avatar(size: 40, initials: initials(clientName), background: t.accentSoft)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Rate Marin Realty Co.")
+                        Text("Rate \(clientName)")
                             .font(AviaryFont.body(14, weight: .semibold))
                             .foregroundStyle(t.ink)
                         Text("Helps other pilots decide")
@@ -643,7 +963,7 @@ struct ReviewCompleteScreen: View {
                 .padding(.vertical, 8)
 
                 FlowLayout(spacing: 6) {
-                    ForEach(["Clear brief", "Fair pay", "Easy site", "Friendly"], id: \.self) { tag in
+                    ForEach(availableTags, id: \.self) { tag in
                         Button { toggle(tag) } label: {
                             Chip(text: tag, style: tags.contains(tag) ? .accent : .surface)
                         }
@@ -654,8 +974,68 @@ struct ReviewCompleteScreen: View {
         }
     }
 
+    private var noteCard: some View {
+        AviaryCard(padding: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Add a note (optional)")
+                    .font(AviaryFont.body(13, weight: .semibold))
+                    .foregroundStyle(t.ink2)
+                ZStack(alignment: .topLeading) {
+                    if note.isEmpty {
+                        Text("Anything the client should know about the shoot…")
+                            .font(AviaryFont.body(13))
+                            .foregroundStyle(t.ink4)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 6)
+                    }
+                    TextEditor(text: $note)
+                        .font(AviaryFont.body(13))
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 70, maxHeight: 110)
+                        .foregroundStyle(t.ink)
+                }
+            }
+        }
+    }
+
     private func toggle(_ tag: String) {
         if tags.contains(tag) { tags.remove(tag) } else { tags.insert(tag) }
+    }
+
+    private func initials(_ name: String) -> String {
+        let parts = name.split(separator: " ").compactMap(\.first).prefix(2)
+        return parts.isEmpty ? "CL" : String(parts).uppercased()
+    }
+
+    private func submit() {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        errorMessage = nil
+        Task {
+            // Persist completion only when not in demo mode and we have a real job + pilot
+            if !demoStore.isOn, let job, let pilotID {
+                do {
+                    try await AviaryDataService.shared.completeJob(
+                        jobID: job.id,
+                        pilotID: pilotID,
+                        rating: stars,
+                        tags: Array(tags).sorted(),
+                        note: note.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                } catch {
+                    await MainActor.run {
+                        errorMessage = error.localizedDescription
+                        isSubmitting = false
+                    }
+                    return
+                }
+            }
+            await MainActor.run {
+                isSubmitting = false
+                onCompleted()
+                dismiss()
+            }
+        }
     }
 }
 
