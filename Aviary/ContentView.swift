@@ -2,26 +2,76 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var themeManager = ThemeManager()
-    @State private var onboarded: Bool = false
+    @EnvironmentObject private var auth: AuthViewModel
 
     var body: some View {
         Group {
-            if !onboarded {
-                OnboardingFlow(done: $onboarded)
-            } else {
-                RootView(themeManager: themeManager)
+            switch auth.state {
+            case .loading:
+                SplashView()
+            case .signedOut:
+                OnboardingFlow()
+            case .signedIn(let profile):
+                RootView(themeManager: themeManager, profile: profile)
             }
         }
         .environment(\.theme, themeManager.tokens)
         .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         .tint(themeManager.tokens.accent)
+        .animation(.easeInOut(duration: 0.25), value: stateKey)
+    }
+
+    private var stateKey: String {
+        switch auth.state {
+        case .loading:               return "loading"
+        case .signedOut:             return "signedOut"
+        case .signedIn(let profile): return "signedIn:\(profile.id)"
+        }
+    }
+}
+
+private struct SplashView: View {
+    @Environment(\.theme) private var t
+
+    var body: some View {
+        ZStack {
+            t.bg.ignoresSafeArea()
+            VStack(spacing: 14) {
+                AviaryLogo(size: 56, color: t.accent)
+                Text("aviary")
+                    .font(AviaryFont.body(22, weight: .bold))
+                    .tracking(-0.02 * 22)
+                    .foregroundStyle(t.ink)
+                ProgressView()
+                    .tint(t.accent)
+                    .padding(.top, 6)
+            }
+        }
     }
 }
 
 struct RootView: View {
     @ObservedObject var themeManager: ThemeManager
+    let profile: UserProfile
     @Environment(\.theme) private var t
-    @State private var tab: AppTab = .home
+
+    var body: some View {
+        switch profile.role {
+        case .pilot:
+            PilotRootView(themeManager: themeManager, profile: profile)
+        case .customer:
+            CustomerRootView(themeManager: themeManager, profile: profile)
+        }
+    }
+}
+
+// MARK: - Pilot root
+
+struct PilotRootView: View {
+    @ObservedObject var themeManager: ThemeManager
+    let profile: UserProfile
+    @Environment(\.theme) private var t
+    @State private var tab: PilotTab = .home
 
     @State private var showAcceptPing: Bool = false
     @State private var showGigDetail: Bool = false
@@ -44,6 +94,7 @@ struct RootView: View {
                 EarningsScreen()
             case .me:
                 ProfileScreen(themeManager: themeManager,
+                              profile: profile,
                               onOpenMessages: { showMessages = true })
             }
         }
@@ -69,6 +120,45 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showInFlight) {
             InFlightScreen()
         }
+        .sheet(isPresented: $showMessages) {
+            MessagesScreen()
+                .environment(\.theme, t)
+                .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
+        }
+    }
+}
+
+// MARK: - Customer root
+
+struct CustomerRootView: View {
+    @ObservedObject var themeManager: ThemeManager
+    let profile: UserProfile
+    @Environment(\.theme) private var t
+    @State private var tab: CustomerTab = .home
+    @State private var showMessages: Bool = false
+
+    var body: some View {
+        Group {
+            switch tab {
+            case .home:
+                CustomerHomeScreen(profile: profile,
+                                   onPostJob: { tab = .postJob })
+            case .postJob:
+                ClientRequestScreen()
+            case .myJobs:
+                MyJobsScreen()
+            case .messages:
+                MessagesScreen()
+            case .me:
+                ProfileScreen(themeManager: themeManager,
+                              profile: profile,
+                              onOpenMessages: { showMessages = true })
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AviaryTabBar(selection: $tab)
+        }
+        .ignoresSafeArea(.keyboard)
         .sheet(isPresented: $showMessages) {
             MessagesScreen()
                 .environment(\.theme, t)
@@ -202,4 +292,5 @@ struct FlyHubScreen: View {
 
 #Preview {
     ContentView()
+        .environmentObject(AuthViewModel())
 }

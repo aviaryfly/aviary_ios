@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light only" />
+    <title>Confirm your Aviary account</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#EDE4D0;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;color:#2A1D0E;-webkit-font-smoothing:antialiased;">
+    <!-- Preheader (hidden in body, shown in inbox preview) -->
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;color:transparent;visibility:hidden;opacity:0;">
+      Your Aviary verification code is {{ .Token }}. It expires in 1 hour.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDE4D0;">
+      <tr>
+        <td align="center" style="padding:40px 20px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
+
+            <!-- Brand mark -->
+            <tr>
+              <td align="left" style="padding:0 4px 24px 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <img src="data:image/png;base64,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" alt="Aviary" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:9px;border:1px solid #E1D6BC;" />
+                    </td>
+                    <td style="width:12px;"></td>
+                    <td style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-weight:800;font-size:18px;letter-spacing:0.18em;color:#2A1D0E;vertical-align:middle;">
+                      AVIARY
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Card -->
+            <tr>
+              <td style="background-color:#FBF7EC;border:1px solid #E1D6BC;border-radius:18px;padding:36px 32px;">
+
+                <!-- Eyebrow -->
+                <p style="margin:0 0 10px 0;font-size:12px;font-weight:600;letter-spacing:0.06em;color:#C7501C;text-transform:uppercase;">
+                  Verify your email
+                </p>
+
+                <!-- Headline -->
+                <h1 style="margin:0 0 12px 0;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-weight:800;font-size:28px;line-height:1.15;letter-spacing:-0.02em;color:#2A1D0E;">
+                  Confirm your account
+                </h1>
+
+                <!-- Subhead -->
+                <p style="margin:0 0 28px 0;font-size:15px;line-height:1.55;color:#7A6849;">
+                  Enter this 6-digit code in the Aviary app to finish setting up your account.
+                </p>
+
+                <!-- Code panel -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5E3D3;border-radius:14px;">
+                  <tr>
+                    <td align="center" style="padding:26px 16px;">
+                      <span style="display:inline-block;font-family:'SF Mono',Menlo,Consolas,'Courier New',monospace;font-weight:700;font-size:34px;letter-spacing:0.42em;color:#2A1D0E;padding-left:0.42em;">
+                        {{ .Token }}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Expiry -->
+                <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#7A6849;">
+                  This code expires in 1 hour. If you didn't request it, you can safely ignore this email.
+                </p>
+
+                <!-- Divider -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+                  <tr>
+                    <td style="border-top:1px solid #E1D6BC;line-height:0;font-size:0;">&nbsp;</td>
+                  </tr>
+                </table>
+
+                <!-- Help -->
+                <p style="margin:20px 0 0 0;font-size:13px;line-height:1.55;color:#7A6849;">
+                  Having trouble? Reply to this email and we'll help you out.
+                </p>
+
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td align="center" style="padding:24px 8px 0 8px;">
+                <p style="margin:0 0 6px 0;font-size:12px;line-height:1.5;color:#A89576;">
+                  Sent by Aviary · You're receiving this because someone signed up using this address.
+                </p>
+                <p style="margin:0;font-size:11px;line-height:1.5;color:#A89576;letter-spacing:0.02em;">
+                  © Aviary
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -182,9 +182,10 @@ extension Color {
 
 struct ProfileScreen: View {
     @Environment(\.theme) private var t
-    @State private var mode: ModeSwitch.Mode = .pilot
     @ObservedObject var themeManager: ThemeManager
+    let profile: UserProfile
     var onOpenMessages: () -> Void = {}
+    @EnvironmentObject private var auth: AuthViewModel
 
     var body: some View {
         ZStack {
@@ -192,20 +193,23 @@ struct ProfileScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 14) {
-                        Avatar(size: 64, initials: "JD", background: t.accentSoft)
+                        Avatar(size: 64, initials: profile.initials, background: t.accentSoft)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Jordan Daly")
+                            Text(profile.displayName)
                                 .font(AviaryFont.body(19, weight: .bold))
                                 .tracking(-0.01 * 19)
                                 .foregroundStyle(t.ink)
-                            Text("Pilot · Berkeley, CA")
+                                .lineLimit(1)
+                            Text(roleSubtitle)
                                 .font(AviaryFont.body(13))
                                 .foregroundStyle(t.ink3)
-                            HStack(spacing: 6) {
-                                Chip(text: "4.92", icon: "star", style: .good)
-                                Chip(text: "137 gigs")
+                            if profile.role == .pilot {
+                                HStack(spacing: 6) {
+                                    Chip(text: "4.92", icon: "star", style: .good)
+                                    Chip(text: "137 gigs")
+                                }
+                                .padding(.top, 4)
                             }
-                            .padding(.top, 4)
                         }
                         Spacer()
                     }
@@ -213,37 +217,59 @@ struct ProfileScreen: View {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
 
-                    HStack {
-                        ModeSwitch(mode: $mode)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
+                    if profile.role == .pilot {
+                        AviaryCard(padding: 0) {
+                            VStack(spacing: 0) {
+                                profileRow(icon: "cert", label: "Certifications",
+                                           value: "Part 107 · verified", isGood: true, divider: true)
+                                profileRow(icon: "drone", label: "Equipment",
+                                           value: "Mavic 3 Pro · DJI Mini 4", divider: true)
+                                profileRow(icon: "shield", label: "Insurance",
+                                           value: "$2M Aviary Cover", divider: true)
+                                profileRow(icon: "card", label: "Payouts",
+                                           value: "Chase ••4471", divider: false)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
 
+                        SectionTitle(text: "Performance")
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+                        HStack(spacing: 10) {
+                            perfStat(label: "On-time", value: "99%")
+                            perfStat(label: "Accept", value: "87%")
+                            perfStat(label: "Re-hires", value: "42%")
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
+                    } else {
+                        AviaryCard(padding: 0) {
+                            VStack(spacing: 0) {
+                                profileRow(icon: "card", label: "Payment method",
+                                           value: "Add a card to post jobs", divider: true)
+                                profileRow(icon: "pin", label: "Saved addresses",
+                                           value: "0 saved", divider: true)
+                                profileRow(icon: "bell", label: "Notifications",
+                                           value: "Push, email", divider: false)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
+                    }
+
+                    SectionTitle(text: "Account")
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
                     AviaryCard(padding: 0) {
                         VStack(spacing: 0) {
-                            profileRow(icon: "cert", label: "Certifications",
-                                       value: "Part 107 · verified", isGood: true, divider: true)
-                            profileRow(icon: "drone", label: "Equipment",
-                                       value: "Mavic 3 Pro · DJI Mini 4", divider: true)
-                            profileRow(icon: "shield", label: "Insurance",
-                                       value: "$2M Aviary Cover", divider: true)
-                            profileRow(icon: "card", label: "Payouts",
-                                       value: "Chase ••4471", divider: false)
+                            profileRow(icon: "user", label: "Email",
+                                       value: profile.email, divider: true)
+                            profileRow(icon: "compass", label: "Role",
+                                       value: profile.role.displayName, divider: false)
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
-
-                    SectionTitle(text: "Performance")
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 8)
-                    HStack(spacing: 10) {
-                        perfStat(label: "On-time", value: "99%")
-                        perfStat(label: "Accept", value: "87%")
-                        perfStat(label: "Re-hires", value: "42%")
-                    }
-                    .padding(.horizontal, 20)
                     .padding(.bottom, 16)
 
                     SectionTitle(text: "Theme")
@@ -299,9 +325,43 @@ struct ProfileScreen: View {
                     .buttonStyle(PressableButtonStyle())
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+
+                    Button {
+                        Task { await auth.signOut() }
+                    } label: {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10).fill(t.surface2)
+                                AviaryIcon(name: "arrow-right", size: 18, color: t.warn)
+                            }
+                            .frame(width: 34, height: 34)
+                            Text("Sign out")
+                                .font(AviaryFont.body(14, weight: .medium))
+                                .foregroundStyle(t.warn)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: Radius.md).fill(t.surface)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.md).strokeBorder(t.line)
+                        )
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
                     .padding(.bottom, 24)
                 }
             }
+        }
+    }
+
+    private var roleSubtitle: String {
+        switch profile.role {
+        case .pilot:    return "Pilot · Berkeley, CA"
+        case .customer: return "Customer · Berkeley, CA"
         }
     }
 
@@ -502,7 +562,6 @@ struct ClientRequestScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
     @State private var typeIdx: Int = 0
-    @State private var mode: ModeSwitch.Mode = .client
 
     private let types: [(label: String, icon: String)] = [
         ("Real estate", "camera"), ("Inspection", "cert"),
@@ -513,27 +572,8 @@ struct ClientRequestScreen: View {
         ZStack(alignment: .top) {
             t.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                ZStack(alignment: .top) {
-                    MapBackground(pins: [.init(x: 195, y: 140, label: "📍")])
-                        .frame(height: 280)
-                    HStack {
-                        Button { dismiss() } label: {
-                            ZStack {
-                                Circle().fill(t.surface)
-                                AviaryIcon(name: "arrow-left", size: 18, color: t.ink)
-                            }
-                            .frame(width: 40, height: 40)
-                            .overlay(Circle().strokeBorder(t.line))
-                            .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-                        }
-                        Spacer()
-                        ModeSwitch(mode: $mode)
-                            .padding(8)
-                            .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                }
+                MapBackground(pins: [.init(x: 195, y: 140, label: "📍")])
+                    .frame(height: 280)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {

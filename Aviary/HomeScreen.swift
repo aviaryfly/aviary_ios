@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HomeScreen: View {
     @Environment(\.theme) private var t
-    @State private var mode: ModeSwitch.Mode = .pilot
     var onOpenAcceptPing: () -> Void = {}
     var onOpenGigDetail: () -> Void = {}
 
@@ -45,10 +44,7 @@ struct HomeScreen: View {
                     .foregroundStyle(t.ink)
             }
             Spacer()
-            HStack(spacing: 14) {
-                ModeSwitch(mode: $mode)
-                Avatar(size: 32, initials: "JD", background: t.accentSoft)
-            }
+            Avatar(size: 32, initials: "JD", background: t.accentSoft)
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)

@@ -41,45 +41,6 @@ struct Avatar: View {
     }
 }
 
-// MARK: - Mode switch (Pilot ↔ Client)
-
-struct ModeSwitch: View {
-    enum Mode: String { case pilot = "Pilot", client = "Client" }
-    @Binding var mode: Mode
-    @Environment(\.theme) private var t
-
-    var body: some View {
-        HStack(spacing: 0) {
-            pill(for: .pilot)
-            pill(for: .client)
-        }
-        .padding(3)
-        .background(
-            Capsule().fill(t.surface2)
-        )
-    }
-
-    @ViewBuilder
-    private func pill(for m: Mode) -> some View {
-        let active = m == mode
-        Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { mode = m }
-        } label: {
-            Text(m.rawValue)
-                .font(AviaryFont.body(12, weight: .semibold))
-                .foregroundStyle(active ? t.ink : t.ink3)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(active ? t.surface : .clear)
-                        .shadow(color: active ? .black.opacity(0.05) : .clear, radius: 2, y: 1)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: - Chip
 
 struct Chip: View {
@@ -239,13 +200,18 @@ struct SectionTitle: View {
 
 // MARK: - Custom tab bar
 
-struct AviaryTabBar: View {
-    @Binding var selection: AppTab
+protocol TabRepresentable: Hashable, CaseIterable, Identifiable {
+    var title: String { get }
+    var icon: String { get }
+}
+
+struct AviaryTabBar<Tab: TabRepresentable>: View where Tab.AllCases: RandomAccessCollection {
+    @Binding var selection: Tab
     @Environment(\.theme) private var t
 
     var body: some View {
         HStack {
-            ForEach(AppTab.allCases) { tab in
+            ForEach(Tab.allCases) { tab in
                 Button {
                     selection = tab
                 } label: {
@@ -272,7 +238,7 @@ struct AviaryTabBar: View {
     }
 }
 
-enum AppTab: String, CaseIterable, Identifiable {
+enum PilotTab: String, CaseIterable, Identifiable, TabRepresentable {
     case home, gigs, fly, earn, me
     var id: String { rawValue }
     var title: String {
@@ -291,6 +257,29 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .fly:  return "drone"
         case .earn: return "wallet"
         case .me:   return "user"
+        }
+    }
+}
+
+enum CustomerTab: String, CaseIterable, Identifiable, TabRepresentable {
+    case home, postJob, myJobs, messages, me
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .home:     return "Home"
+        case .postJob:  return "Post Job"
+        case .myJobs:   return "My Jobs"
+        case .messages: return "Messages"
+        case .me:       return "Profile"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .home:     return "home"
+        case .postJob:  return "plus"
+        case .myJobs:   return "briefcase"
+        case .messages: return "message"
+        case .me:       return "user"
         }
     }
 }

@@ -1,17 +1,42 @@
 import SwiftUI
 
 struct OnboardingFlow: View {
-    @Binding var done: Bool
-    @State private var step: Int = 0
+    @EnvironmentObject private var auth: AuthViewModel
+    @State private var step: Step = .welcome
+    @State private var role: UserRole = .pilot
     @Environment(\.theme) private var t
+
+    enum Step { case welcome, roleSelect, cert, auth }
 
     var body: some View {
         ZStack {
             switch step {
-            case 0: WelcomeHero(onContinue: { step = 1 })
-            case 1: RoleSelect(onBack: { step = 0 }, onContinue: { step = 2 })
-            case 2: CertCheck(onBack: { step = 1 }, onContinue: { done = true })
-            default: EmptyView()
+            case .welcome:
+                WelcomeHero(
+                    onContinue: { step = .roleSelect },
+                    onSignIn: { step = .auth }
+                )
+            case .roleSelect:
+                RoleSelect(
+                    onBack: { step = .welcome },
+                    onContinue: { selected in
+                        role = selected
+                        step = (selected == .pilot) ? .cert : .auth
+                    }
+                )
+            case .cert:
+                CertCheck(
+                    onBack: { step = .roleSelect },
+                    onContinue: { step = .auth }
+                )
+            case .auth:
+                AuthScreen(
+                    role: role,
+                    onBack: {
+                        auth.errorMessage = nil
+                        step = (role == .pilot) ? .cert : .roleSelect
+                    }
+                )
             }
         }
         .animation(.easeInOut(duration: 0.25), value: step)
@@ -20,6 +45,7 @@ struct OnboardingFlow: View {
 
 private struct WelcomeHero: View {
     var onContinue: () -> Void
+    var onSignIn: () -> Void
     @Environment(\.theme) private var t
 
     var body: some View {
@@ -44,9 +70,12 @@ private struct WelcomeHero: View {
                 .tracking(-0.02 * 19)
                 .foregroundStyle(t.ink)
             Spacer()
-            Text("Sign in")
-                .font(AviaryFont.body(13, weight: .medium))
-                .foregroundStyle(t.ink3)
+            Button(action: onSignIn) {
+                Text("Sign in")
+                    .font(AviaryFont.body(13, weight: .medium))
+                    .foregroundStyle(t.ink3)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 28)
         .padding(.top, 16)
@@ -228,9 +257,9 @@ private struct WelcomeHero: View {
 
 private struct RoleSelect: View {
     var onBack: () -> Void
-    var onContinue: () -> Void
+    var onContinue: (UserRole) -> Void
     @Environment(\.theme) private var t
-    @State private var choice: Int = 0
+    @State private var choice: UserRole = .pilot
 
     var body: some View {
         ZStack {
@@ -254,7 +283,7 @@ private struct RoleSelect: View {
                     .foregroundStyle(t.ink)
                     .padding(.bottom, 8)
 
-                Text("You can switch modes anytime.")
+                Text("You'll keep this role on your account.")
                     .font(AviaryFont.body(15))
                     .foregroundStyle(t.ink3)
                     .padding(.bottom, 28)
@@ -262,18 +291,17 @@ private struct RoleSelect: View {
                 VStack(spacing: 14) {
                     roleCard(title: "I'm a Pilot",
                              sub: "Find paid drone gigs in your area. Set your own schedule.",
-                             icon: "drone", recommended: true, idx: 0)
+                             icon: "drone", recommended: true, role: .pilot)
                     roleCard(title: "I need a flight",
                              sub: "Post a job in 60 seconds. A vetted pilot accepts.",
-                             icon: "briefcase", idx: 1)
-                    roleCard(title: "Both",
-                             sub: "Earn flying and hire others when you need extra hands.",
-                             icon: "compass", idx: 2)
+                             icon: "briefcase", role: .customer)
                 }
 
                 Spacer(minLength: 0)
 
-                PrimaryButton(title: "Continue", systemTrailing: "arrow.right", action: onContinue)
+                PrimaryButton(title: "Continue",
+                              systemTrailing: "arrow.right",
+                              action: { onContinue(choice) })
                     .padding(.top, 24)
             }
             .padding(.horizontal, 24)
@@ -282,8 +310,8 @@ private struct RoleSelect: View {
     }
 
     private func roleCard(title: String, sub: String, icon: String,
-                          recommended: Bool = false, idx: Int) -> some View {
-        Button { choice = idx } label: {
+                          recommended: Bool = false, role: UserRole) -> some View {
+        Button { choice = role } label: {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
                     ZStack {
@@ -311,8 +339,8 @@ private struct RoleSelect: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .strokeBorder(choice == idx ? t.accent : t.line,
-                                  lineWidth: choice == idx ? 2 : 1)
+                    .strokeBorder(choice == role ? t.accent : t.line,
+                                  lineWidth: choice == role ? 2 : 1)
             )
             .overlay(alignment: .topTrailing) {
                 if recommended {
