@@ -83,6 +83,7 @@ struct PilotRootView: View {
             switch tab {
             case .home:
                 HomeScreen(
+                    profile: profile,
                     onOpenAcceptPing: { showAcceptPing = true },
                     onOpenGigDetail: { showGigDetail = true }
                 )

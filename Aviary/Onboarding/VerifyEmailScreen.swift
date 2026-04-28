@@ -11,7 +11,7 @@ struct VerifyEmailScreen: View {
     @FocusState private var focused: Bool
 
     private let codeLength = 6
-    private let resendCooldownSeconds = 30
+    private let resendCooldownSeconds = 60
 
     var body: some View {
         ZStack {

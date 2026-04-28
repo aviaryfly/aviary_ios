@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct HomeScreen: View {
+    let profile: UserProfile
     @Environment(\.theme) private var t
+    @StateObject private var weather = WeatherViewModel()
     var onOpenAcceptPing: () -> Void = {}
     var onOpenGigDetail: () -> Void = {}
 
@@ -32,6 +34,7 @@ struct HomeScreen: View {
                 }
             }
         }
+        .onAppear { weather.loadIfNeeded() }
     }
 
     private var header: some View {
@@ -44,7 +47,7 @@ struct HomeScreen: View {
                     .foregroundStyle(t.ink)
             }
             Spacer()
-            Avatar(size: 32, initials: "JD", background: t.accentSoft)
+            Avatar(size: 32, initials: profile.initials, background: t.accentSoft)
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)
@@ -52,10 +55,10 @@ struct HomeScreen: View {
 
     private var greeting: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Tuesday · clear · 9 mph")
+            Text(weatherSummary)
                 .font(AviaryFont.body(13, weight: .medium))
                 .foregroundStyle(t.ink3)
-            Text("Good flying weather, Jordan.")
+            Text(headlineText)
                 .font(AviaryFont.display(32, weight: .bold))
                 .tracking(-0.03 * 32)
                 .lineSpacing(-2)
@@ -65,6 +68,36 @@ struct HomeScreen: View {
         .padding(.horizontal, 22)
         .padding(.top, 20)
         .padding(.bottom, 10)
+    }
+
+    private var firstName: String {
+        if let name = profile.firstName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+            return name
+        }
+        return "pilot"
+    }
+
+    private var headlineText: String {
+        guard let snap = weather.snapshot else {
+            return "Good flying weather, \(firstName)."
+        }
+        if snap.isFavorable {
+            return "Good flying weather, \(firstName)."
+        }
+        return "Take it easy out there, \(firstName)."
+    }
+
+    private var weatherSummary: String {
+        if let snap = weather.snapshot {
+            return "\(snap.dayName) · \(snap.condition.lowercased()) · \(snap.windSpeedMph) mph"
+        }
+        if weather.isLoading {
+            return "Checking conditions…"
+        }
+        if let error = weather.errorMessage {
+            return error
+        }
+        return "Tap to load weather"
     }
 
     private var todaySnapshot: some View {
