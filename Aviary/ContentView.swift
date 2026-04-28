@@ -81,7 +81,9 @@ struct PilotRootView: View {
     @State private var showGigDetail: Bool = false
     @State private var showInFlight: Bool = false
     @State private var showMessages: Bool = false
+    @State private var showNearbyGigsMap: Bool = false
     @State private var selectedGig: AviaryJob?
+    @State private var selectedDemoGig: DemoGig?
 
     var body: some View {
         Group {
@@ -92,14 +94,25 @@ struct PilotRootView: View {
                     onOpenAcceptPing: { showAcceptPing = true },
                     onOpenGigDetail: {
                         selectedGig = nil
+                        selectedDemoGig = nil
+                        showGigDetail = true
+                    },
+                    onOpenNearbyGigs: { showNearbyGigsMap = true }
+                )
+            case .gigs:
+                GigListScreen(
+                    profile: profile,
+                    onOpenGig: { gig in
+                        selectedGig = gig
+                        selectedDemoGig = nil
+                        showGigDetail = true
+                    },
+                    onOpenDemoGig: { demo in
+                        selectedGig = nil
+                        selectedDemoGig = demo
                         showGigDetail = true
                     }
                 )
-            case .gigs:
-                GigListScreen(profile: profile, onOpenGig: { gig in
-                    selectedGig = gig
-                    showGigDetail = true
-                })
             case .fly:
                 FlyHubScreen(
                     profile: profile,
@@ -122,12 +135,16 @@ struct PilotRootView: View {
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
         .sheet(isPresented: $showGigDetail) {
-            GigDetailScreen(job: selectedGig, pilotProfile: profile, onAccept: {
+            GigDetailScreen(job: selectedGig,
+                            demoGig: selectedDemoGig,
+                            pilotProfile: profile,
+                            onAccept: {
                 let acceptedBackendGig = selectedGig != nil && !demoStore.isOn
                 showGigDetail = false
                 if acceptedBackendGig {
                     tab = .fly
                     selectedGig = nil
+                    selectedDemoGig = nil
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                         showAcceptPing = true
@@ -143,6 +160,12 @@ struct PilotRootView: View {
         .sheet(isPresented: $showMessages) {
             MessagesScreen(profile: profile, showsCloseButton: true)
                 .environment(\.theme, t)
+                .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
+        }
+        .sheet(isPresented: $showNearbyGigsMap) {
+            NearbyGigsMapScreen(activeJob: nil)
+                .environment(\.theme, t)
+                .environmentObject(demoStore)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
     }
@@ -271,13 +294,24 @@ struct FlyHubScreen: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
                     } else {
-                        FeatureStateCard(icon: "drone",
-                                         title: "No active gig",
-                                         message: "Accept a gig to unlock the pre-flight checklist, mission tools, upload flow, and completion review.",
-                                         buttonTitle: "Browse gigs",
-                                         action: onBrowseGigs)
+                        noActiveGigCard
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+
+                        SectionTitle(text: "Mission tools")
+                            .padding(.horizontal, 20)
+                            .padding(.top, 22)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 10) {
+                            toolRow(icon: "navigation", title: "Map of nearby gigs",
+                                    sub: "Pilot map view") { showMapHome = true }
+                            toolRow(icon: "upload", title: "Hand off deliverables",
+                                    sub: "Available once you have an active gig") { showUpload = true }
+                            toolRow(icon: "check-circle", title: "Complete & rate",
+                                    sub: "Available once you have an active gig") { showReview = true }
+                        }
                         .padding(.horizontal, 16)
-                        .padding(.top, 6)
                         .padding(.bottom, 24)
                     }
                 }
@@ -333,6 +367,29 @@ struct FlyHubScreen: View {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private var noActiveGigCard: some View {
+        AviaryCard(padding: 18, shadowed: true) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Chip(text: "NO ACTIVE GIG", style: .neutral)
+                    Spacer()
+                }
+                Text("No active gig")
+                    .font(AviaryFont.display(22, weight: .bold))
+                    .tracking(-0.02 * 22)
+                    .foregroundStyle(t.ink)
+                Text("Accept a gig to unlock the pre-flight checklist and take-off flow.")
+                    .font(AviaryFont.body(13))
+                    .foregroundStyle(t.ink3)
+                    .lineSpacing(2)
+                PrimaryButton(title: "Browse gigs",
+                              systemTrailing: "arrow.right",
+                              action: onBrowseGigs)
+                    .padding(.top, 4)
+            }
+        }
     }
 
     private func activeMissionCard(job: AviaryJob?) -> some View {

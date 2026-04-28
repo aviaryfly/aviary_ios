@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CustomerHomeScreen: View {
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     let profile: UserProfile
     var onPostJob: () -> Void = {}
 
@@ -22,9 +23,15 @@ struct CustomerHomeScreen: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 22)
                         .padding(.bottom, 8)
-                    emptyActivity
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 24)
+                    if demoStore.isOn {
+                        recentActivityList
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 24)
+                    } else {
+                        emptyActivity
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 24)
+                    }
                 }
             }
         }
@@ -115,9 +122,9 @@ struct CustomerHomeScreen: View {
 
     private var statsRow: some View {
         HStack(spacing: 10) {
-            stat(label: "Active jobs", value: "0")
-            stat(label: "Total spend", value: "$0")
-            stat(label: "Pilots used", value: "0")
+            stat(label: "Active jobs", value: demoStore.isOn ? "2" : "0")
+            stat(label: "Total spend", value: demoStore.isOn ? "$3,420" : "$0")
+            stat(label: "Pilots used", value: demoStore.isOn ? "5" : "0")
         }
     }
 
@@ -148,6 +155,76 @@ struct CustomerHomeScreen: View {
                     .lineSpacing(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private struct DemoActivityRow {
+        let icon: String
+        let title: String
+        let subtitle: String
+        let amount: String
+        let chip: String
+        let chipStyle: Chip.Style
+    }
+
+    private var demoActivity: [DemoActivityRow] {
+        [
+            DemoActivityRow(icon: "camera",
+                            title: "Real estate · 1247 Vine St",
+                            subtitle: "Casey Park · today, 3:30 PM",
+                            amount: "$340",
+                            chip: "En route",
+                            chipStyle: .accent),
+            DemoActivityRow(icon: "cert",
+                            title: "Roof inspection · 22 Hillside Ave",
+                            subtitle: "Casey Park · 2 days ago",
+                            amount: "$220",
+                            chip: "Completed",
+                            chipStyle: .good),
+            DemoActivityRow(icon: "star",
+                            title: "Wedding aerial · Tilden Park",
+                            subtitle: "M. Hartley · last Saturday",
+                            amount: "$780",
+                            chip: "Completed",
+                            chipStyle: .good),
+            DemoActivityRow(icon: "altitude",
+                            title: "Vineyard mapping · Stags Leap",
+                            subtitle: "L. Tan · scheduled Wed",
+                            amount: "$1,250",
+                            chip: "Scheduled",
+                            chipStyle: .neutral)
+        ]
+    }
+
+    private var recentActivityList: some View {
+        VStack(spacing: 10) {
+            ForEach(Array(demoActivity.enumerated()), id: \.offset) { _, row in
+                AviaryCard(padding: 14, shadowed: true) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12).fill(t.surface2)
+                            AviaryIcon(name: row.icon, size: 20, stroke: 2, color: t.accent)
+                        }
+                        .frame(width: 44, height: 44)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.title)
+                                .font(AviaryFont.body(14, weight: .semibold))
+                                .foregroundStyle(t.ink)
+                                .lineLimit(1)
+                            Text(row.subtitle)
+                                .font(AviaryFont.body(12))
+                                .foregroundStyle(t.ink3)
+                                .lineLimit(1)
+                            Chip(text: row.chip, style: row.chipStyle)
+                                .padding(.top, 4)
+                        }
+                        Spacer(minLength: 0)
+                        Text(row.amount)
+                            .font(AviaryFont.mono(15, weight: .semibold))
+                            .foregroundStyle(t.ink)
+                    }
+                }
+            }
         }
     }
 }

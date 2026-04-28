@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 // MARK: - Pre-flight checklist
 
@@ -421,7 +422,8 @@ struct InFlightScreen: View {
 
 struct UploadAsset: Identifiable {
     let id = UUID()
-    var pickerItem: PhotosPickerItem
+    var pickerItem: PhotosPickerItem?
+    var fileURL: URL?
     var image: Image?
     var isVideo: Bool
     var sizeBytes: Int64
@@ -441,6 +443,8 @@ struct UploadScreen: View {
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var assets: [UploadAsset] = []
     @State private var isPickerPresented: Bool = false
+    @State private var isFileImporterPresented: Bool = false
+    @State private var isSourceDialogPresented: Bool = false
     @State private var isSubmitting: Bool = false
     @State private var errorMessage: String?
 
@@ -522,6 +526,25 @@ struct UploadScreen: View {
             ingest(new)
             pickerItems = []
         }
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.image, .movie],
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls):
+                ingestFiles(urls)
+            case .failure(let error):
+                errorMessage = error.localizedDescription
+            }
+        }
+        .confirmationDialog("Add photos & videos",
+                            isPresented: $isSourceDialogPresented,
+                            titleVisibility: .visible) {
+            Button("Photo Library") { isPickerPresented = true }
+            Button("Files") { isFileImporterPresented = true }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private var header: some View {
@@ -602,7 +625,7 @@ struct UploadScreen: View {
     @ViewBuilder
     private var pickerArea: some View {
         if assets.isEmpty {
-            Button { isPickerPresented = true } label: {
+            Button { isSourceDialogPresented = true } label: {
                 emptyDropzone
             }
             .buttonStyle(PressableButtonStyle())
@@ -644,7 +667,7 @@ struct UploadScreen: View {
     }
 
     private var addMoreTile: some View {
-        Button { isPickerPresented = true } label: {
+        Button { isSourceDialogPresented = true } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 10).fill(t.surface)
                 AviaryIcon(name: "plus", size: 22, color: t.ink3)
@@ -743,6 +766,7 @@ struct UploadScreen: View {
             let isVideo = item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) })
             let asset = UploadAsset(
                 pickerItem: item,
+                fileURL: nil,
                 image: nil,
                 isVideo: isVideo,
                 sizeBytes: 0,
@@ -753,6 +777,31 @@ struct UploadScreen: View {
             assets.append(asset)
             Task { await loadAndUpload(assetID: asset.id, item: item, isVideo: isVideo) }
         }
+    }
+
+    private func ingestFiles(_ urls: [URL]) {
+        for url in urls {
+            let isVideo = isVideoFile(url)
+            let asset = UploadAsset(
+                pickerItem: nil,
+                fileURL: url,
+                image: nil,
+                isVideo: isVideo,
+                sizeBytes: 0,
+                progress: 0,
+                done: false,
+                failed: false
+            )
+            assets.append(asset)
+            Task { await loadAndUploadFile(assetID: asset.id, url: url, isVideo: isVideo) }
+        }
+    }
+
+    private func isVideoFile(_ url: URL) -> Bool {
+        if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
+            return type.conforms(to: .movie)
+        }
+        return UTType(filenameExtension: url.pathExtension)?.conforms(to: .movie) ?? false
     }
 
     private func loadAndUpload(assetID: UUID, item: PhotosPickerItem, isVideo: Bool) async {
@@ -772,6 +821,39 @@ struct UploadScreen: View {
         }
 
         // Simulate upload progress (real backend storage isn't wired yet)
+        let steps = 18
+        for i in 1...steps {
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            await MainActor.run {
+                update(id: assetID) { $0.progress = Double(i) / Double(steps) }
+            }
+        }
+        await MainActor.run {
+            update(id: assetID) {
+                $0.progress = 1
+                $0.done = true
+            }
+        }
+    }
+
+    private func loadAndUploadFile(assetID: UUID, url: URL, isVideo: Bool) async {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let data = try? Data(contentsOf: url)
+        if !isVideo, let data, let uiImage = UIImage(data: data) {
+            await MainActor.run {
+                update(id: assetID) {
+                    $0.image = Image(uiImage: uiImage)
+                    $0.sizeBytes = Int64(data.count)
+                }
+            }
+        } else if let data {
+            await MainActor.run {
+                update(id: assetID) { $0.sizeBytes = Int64(data.count) }
+            }
+        }
+
         let steps = 18
         for i in 1...steps {
             try? await Task.sleep(nanoseconds: 90_000_000)

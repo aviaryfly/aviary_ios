@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class DemoModeStore: ObservableObject {
     static let defaultsKey = "demoMode.isOn"
+    static let roleOverrideKey = "demoMode.roleOverride"
 
     @Published var isOn: Bool {
         didSet {
@@ -12,10 +13,27 @@ final class DemoModeStore: ObservableObject {
         }
     }
 
+    @Published var roleOverride: UserRole? {
+        didSet {
+            guard oldValue != roleOverride else { return }
+            if let role = roleOverride {
+                defaults.set(role.rawValue, forKey: Self.roleOverrideKey)
+            } else {
+                defaults.removeObject(forKey: Self.roleOverrideKey)
+            }
+        }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.isOn = defaults.bool(forKey: Self.defaultsKey)
+        if let raw = defaults.string(forKey: Self.roleOverrideKey),
+           let role = UserRole(rawValue: raw) {
+            self.roleOverride = role
+        } else {
+            self.roleOverride = nil
+        }
     }
 }

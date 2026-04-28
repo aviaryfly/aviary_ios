@@ -258,7 +258,7 @@ struct AviaryTabBar<Tab: TabRepresentable>: View where Tab.AllCases: RandomAcces
     @Environment(\.theme) private var t
 
     var body: some View {
-        HStack {
+        HStack(spacing: 0) {
             ForEach(Tab.allCases) { tab in
                 Button {
                     selection = tab
@@ -270,7 +270,8 @@ struct AviaryTabBar<Tab: TabRepresentable>: View where Tab.AllCases: RandomAcces
                             .font(AviaryFont.body(10, weight: .medium))
                             .foregroundStyle(selection == tab ? t.accent : t.ink4)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

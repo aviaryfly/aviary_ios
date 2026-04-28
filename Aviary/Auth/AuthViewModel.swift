@@ -32,8 +32,9 @@ final class AuthViewModel: ObservableObject {
 
     init(demoStore: DemoModeStore) {
         self.demoStore = demoStore
-        self.demoCancellable = demoStore.$isOn
-            .removeDuplicates()
+        let isOnUpdates = demoStore.$isOn.removeDuplicates().map { _ in () }
+        let roleUpdates = demoStore.$roleOverride.removeDuplicates().map { _ in () }
+        self.demoCancellable = isOnUpdates.merge(with: roleUpdates)
             .sink { [weak self] _ in
                 guard let self else { return }
                 Task { @MainActor in
@@ -213,8 +214,9 @@ final class AuthViewModel: ObservableObject {
             displayedProfile = real
             return
         }
+        let role = demoStore.roleOverride ?? real.role
         do {
-            let demo = try await DemoProfileService.shared.demoProfile(for: real.role)
+            let demo = try await DemoProfileService.shared.demoProfile(for: role)
             displayedProfile = demo
         } catch {
             displayedProfile = real

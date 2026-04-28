@@ -186,11 +186,14 @@ struct MyJobsScreen: View {
     }
 
     private static func demoJobs(customerID: UUID) -> [AviaryJob] {
-        [
+        let pilotCasey = UUID(uuidString: "22222222-2222-4222-8222-222222222222")
+        let pilotJamie = UUID(uuidString: "44444444-4444-4444-8444-444444444444")
+        let pilotLin = UUID(uuidString: "55555555-5555-4555-8555-555555555555")
+        return [
             AviaryJob(
                 id: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!,
                 customerId: customerID,
-                pilotId: UUID(uuidString: "22222222-2222-4222-8222-222222222222"),
+                pilotId: pilotCasey,
                 status: "accepted",
                 jobType: "real_estate",
                 title: "Real estate listing",
@@ -207,7 +210,7 @@ struct MyJobsScreen: View {
             AviaryJob(
                 id: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!,
                 customerId: customerID,
-                pilotId: UUID(uuidString: "22222222-2222-4222-8222-222222222222"),
+                pilotId: pilotCasey,
                 status: "completed",
                 jobType: "inspection",
                 title: "Roof inspection",
@@ -220,6 +223,74 @@ struct MyJobsScreen: View {
                 durationMinutes: 30,
                 deliverables: ["Roof overview photos", "Gutter close-ups", "Annotated damage notes"],
                 createdAt: Date()
+            ),
+            AviaryJob(
+                id: UUID(uuidString: "66666666-6666-4666-8666-666666666666")!,
+                customerId: customerID,
+                pilotId: pilotJamie,
+                status: "in_progress",
+                jobType: "event",
+                title: "Wedding aerial coverage",
+                address: "Tilden Park, Berkeley",
+                clientName: "Hartley & Co.",
+                pilotName: "Jamie Hartley",
+                distanceMiles: 3.1,
+                payoutCents: 78000,
+                scheduledAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date()),
+                durationMinutes: 120,
+                deliverables: ["Ceremony aerial coverage", "Couple cinematic flyover", "60-sec highlight reel"],
+                createdAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())
+            ),
+            AviaryJob(
+                id: UUID(uuidString: "77777777-7777-4777-8777-777777777777")!,
+                customerId: customerID,
+                pilotId: nil,
+                status: "open",
+                jobType: "mapping",
+                title: "Vineyard mapping flight",
+                address: "Stags Leap District, Napa",
+                clientName: "Stags Leap Vineyards",
+                pilotName: nil,
+                distanceMiles: 42,
+                payoutCents: 125000,
+                scheduledAt: Calendar.current.date(byAdding: .day, value: 2, to: Date()),
+                durationMinutes: 240,
+                deliverables: ["Orthomosaic at 2 cm/px", "Multispectral NDVI map", "Boundary KML overlay"],
+                createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())
+            ),
+            AviaryJob(
+                id: UUID(uuidString: "88888888-8888-4888-8888-888888888888")!,
+                customerId: customerID,
+                pilotId: pilotLin,
+                status: "completed",
+                jobType: "real_estate",
+                title: "Listing reshoot — twilight",
+                address: "880 Spruce St, Berkeley",
+                clientName: "Bay Listing Group",
+                pilotName: "Lin Park",
+                distanceMiles: 1.8,
+                payoutCents: 42000,
+                scheduledAt: Calendar.current.date(byAdding: .day, value: -7, to: Date()),
+                durationMinutes: 60,
+                deliverables: ["20 twilight exteriors", "Dawn flyover", "Aerial site plan"],
+                createdAt: Calendar.current.date(byAdding: .day, value: -10, to: Date())
+            ),
+            AviaryJob(
+                id: UUID(uuidString: "99999999-9999-4999-8999-999999999999")!,
+                customerId: customerID,
+                pilotId: pilotJamie,
+                status: "cancelled",
+                jobType: "inspection",
+                title: "Solar array inspection",
+                address: "1500 Industrial Way, Richmond",
+                clientName: "Greenline Solar",
+                pilotName: "Jamie Hartley",
+                distanceMiles: 6.7,
+                payoutCents: 32000,
+                scheduledAt: Calendar.current.date(byAdding: .day, value: -5, to: Date()),
+                durationMinutes: 45,
+                deliverables: ["Thermal panel scan", "Defect call-outs"],
+                createdAt: Calendar.current.date(byAdding: .day, value: -6, to: Date())
             )
         ]
     }

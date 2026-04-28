@@ -7,6 +7,7 @@ struct HomeScreen: View {
     @StateObject private var weather = WeatherViewModel()
     var onOpenAcceptPing: () -> Void = {}
     var onOpenGigDetail: () -> Void = {}
+    var onOpenNearbyGigs: () -> Void = {}
 
     var body: some View {
         ZStack {
@@ -182,9 +183,12 @@ struct HomeScreen: View {
         HStack(spacing: 10) {
             quickAction(iconBg: t.good, iconColor: .white, icon: "navigation",
                         title: "Go online", subtitle: "Accept pings")
-            quickAction(iconBg: t.surface2, iconColor: t.accent, icon: "compass",
-                        title: "Browse",
-                        subtitle: demoStore.isOn ? "14 nearby" : "0 nearby")
+            Button(action: onOpenNearbyGigs) {
+                quickAction(iconBg: t.surface2, iconColor: t.accent, icon: "compass",
+                            title: "Browse",
+                            subtitle: demoStore.isOn ? "14 nearby" : "0 nearby")
+            }
+            .buttonStyle(PressableButtonStyle())
         }
     }
 
@@ -200,16 +204,17 @@ struct HomeScreen: View {
                 Text(title)
                     .font(AviaryFont.body(13, weight: .semibold))
                     .foregroundStyle(t.ink)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle)
                     .font(AviaryFont.body(11))
                     .foregroundStyle(t.ink3)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous).fill(t.surface)
         )
@@ -323,23 +328,29 @@ struct HomeScreen: View {
     }
 
     private var editorialBanner: some View {
-        HStack(spacing: 10) {
-            AviaryIcon(name: "gift", size: 18, color: t.accent)
-            (Text("Vineyard run, Wed 8am. ").bold()
-             + Text("$1,250 mapping gig — pilots in your area only."))
-                .font(AviaryFont.body(13))
-                .foregroundStyle(t.ink2)
-                .lineSpacing(2)
-            Spacer(minLength: 0)
-            AviaryIcon(name: "chevron-right", size: 16, color: t.ink3)
+        Button {
+            onOpenGigDetail()
+        } label: {
+            HStack(spacing: 10) {
+                AviaryIcon(name: "gift", size: 18, color: t.accent)
+                (Text("Vineyard run, Wed 8am. ").bold()
+                 + Text("$1,250 mapping gig — pilots in your area only."))
+                    .font(AviaryFont.body(13))
+                    .foregroundStyle(t.ink2)
+                    .lineSpacing(2)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                AviaryIcon(name: "chevron-right", size: 16, color: t.ink3)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(t.surface2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(t.line)
+            )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(t.surface2)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(t.line)
-        )
+        .buttonStyle(PressableButtonStyle())
     }
 }

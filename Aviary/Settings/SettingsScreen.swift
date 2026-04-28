@@ -61,12 +61,18 @@ struct SettingsScreen: View {
                     AviaryCard(padding: 0) {
                         VStack(spacing: 0) {
                             demoToggleRow
+                            if demoStore.isOn {
+                                Rectangle().fill(t.line).frame(height: 1)
+                                demoRoleRow
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
 
-                    Text("When demo mode is on, the app shows a canonical demo profile for your role. Your real account is untouched.")
+                    Text(demoStore.isOn
+                         ? "Demo mode is on. Pick which side of the app to preview — your real account is untouched."
+                         : "When demo mode is on, the app shows a canonical demo profile. Your real account is untouched.")
                         .font(AviaryFont.body(12))
                         .foregroundStyle(t.ink3)
                         .lineSpacing(2)
@@ -90,6 +96,50 @@ struct SettingsScreen: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 14)
+    }
+
+    private var effectiveDemoRole: UserRole {
+        demoStore.roleOverride ?? profile.role
+    }
+
+    private var demoRoleRow: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(t.accentSoft)
+                AviaryIcon(name: "compass", size: 18, color: t.accent)
+            }
+            .frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Show as")
+                    .font(AviaryFont.body(14, weight: .medium))
+                    .foregroundStyle(t.ink)
+                Text(effectiveDemoRole == profile.role
+                     ? "\(effectiveDemoRole.displayName) demo (your role)"
+                     : "\(effectiveDemoRole.displayName) demo")
+                    .font(AviaryFont.body(12))
+                    .foregroundStyle(t.ink3)
+            }
+            Spacer()
+            HStack(spacing: 6) {
+                ForEach(UserRole.allCases) { role in
+                    Button {
+                        demoStore.roleOverride = (role == profile.role) ? nil : role
+                    } label: {
+                        Text(role.displayName)
+                            .font(AviaryFont.body(12, weight: .semibold))
+                            .foregroundStyle(effectiveDemoRole == role ? t.accentInk : t.ink2)
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(
+                                Capsule().fill(effectiveDemoRole == role ? t.accent : t.surface)
+                            )
+                            .overlay(Capsule().strokeBorder(t.line))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private var demoToggleRow: some View {

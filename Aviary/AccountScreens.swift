@@ -312,10 +312,15 @@ struct ProfileScreen: View {
                                     .foregroundStyle(t.warn)
                                     .padding(.top, 2)
                             }
-                            if profile.role == .pilot && demoStore.isOn {
+                            if demoStore.isOn {
                                 HStack(spacing: 6) {
-                                    Chip(text: "4.92", icon: "star", style: .good)
-                                    Chip(text: "137 gigs")
+                                    if profile.role == .pilot {
+                                        Chip(text: "4.92", icon: "star", style: .good)
+                                        Chip(text: "137 gigs")
+                                    } else {
+                                        Chip(text: "12 jobs")
+                                        Chip(text: "$3,420 spent", style: .good)
+                                    }
                                 }
                                 .padding(.top, 4)
                             }
@@ -373,15 +378,33 @@ struct ProfileScreen: View {
                         AviaryCard(padding: 0) {
                             VStack(spacing: 0) {
                                 profileRow(icon: "card", label: "Payment method",
-                                           value: "Add a card to post jobs", divider: true)
+                                           value: demoStore.isOn ? "Visa ••4471" : "Add a card to post jobs",
+                                           divider: true)
                                 profileRow(icon: "pin", label: "Saved addresses",
-                                           value: "0 saved", divider: true)
+                                           value: demoStore.isOn ? "3 saved · Home, Office, Studio" : "0 saved",
+                                           divider: true)
+                                profileRow(icon: "wallet", label: "Spend",
+                                           value: demoStore.isOn ? "$3,420 lifetime · 12 jobs" : "$0 lifetime",
+                                           divider: true)
                                 profileRow(icon: "bell", label: "Notifications",
                                            value: "Push, email", divider: false)
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
+
+                        if demoStore.isOn {
+                            SectionTitle(text: "Activity")
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 8)
+                            HStack(spacing: 10) {
+                                perfStat(label: "On-time", value: "4 of 5")
+                                perfStat(label: "Avg job", value: "$285")
+                                perfStat(label: "Pilots", value: "5")
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 16)
+                        }
                     }
 
                     Button {
@@ -594,12 +617,14 @@ struct ProfileScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Radius.md).fill(t.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.md).strokeBorder(t.line)
         )
+        .contentShape(Rectangle())
     }
 
     private func handlePickedItem(_ item: PhotosPickerItem) async {
@@ -651,6 +676,8 @@ struct ProfileScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .overlay(
             divider ? Rectangle().fill(t.line).frame(height: 1) : nil,
             alignment: .bottom
@@ -881,6 +908,10 @@ struct MessagesScreen: View {
         )
     }
 
+    private var isCustomerDemo: Bool {
+        profile?.role == .customer
+    }
+
     private var demoThread: some View {
         VStack(spacing: 0) {
             demoHeader
@@ -891,12 +922,21 @@ struct MessagesScreen: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    bubble(text: "Hey Jordan — gate code is 4471. Owner asked for a sunset shot too if light's good.",
-                           time: "2:14 PM", incoming: true)
-                    bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
-                           time: "2:16 PM ✓✓", incoming: false)
-                    bubble(text: "Done. Sending the add-on now.",
-                           time: nil, incoming: true)
+                    if isCustomerDemo {
+                        bubble(text: "Hey Casey — gate code is 4471. Owner asked for a sunset shot too if light's good.",
+                               time: "2:14 PM ✓✓", incoming: false)
+                        bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
+                               time: "2:16 PM", incoming: true)
+                        bubble(text: "Perfect — go for it. Approving the add-on now.",
+                               time: nil, incoming: false)
+                    } else {
+                        bubble(text: "Hey Jordan — gate code is 4471. Owner asked for a sunset shot too if light's good.",
+                               time: "2:14 PM", incoming: true)
+                        bubble(text: "Got it. ETA 22 min. Sunset is 7:48 — happy to add a twilight set for $40.",
+                               time: "2:16 PM ✓✓", incoming: false)
+                        bubble(text: "Done. Sending the add-on now.",
+                               time: nil, incoming: true)
+                    }
                     typingBubble
                 }
                 .padding(.horizontal, 16)
@@ -915,9 +955,11 @@ struct MessagesScreen: View {
                     AviaryIcon(name: "arrow-left", size: 22, color: t.ink)
                 }
             }
-            Avatar(size: 36, initials: "MR", background: t.accentSoft)
+            Avatar(size: 36,
+                   initials: isCustomerDemo ? "CP" : "MR",
+                   background: t.accentSoft)
             VStack(alignment: .leading, spacing: 0) {
-                Text("Marin Realty")
+                Text(isCustomerDemo ? "Casey Park" : "Marin Realty")
                     .font(AviaryFont.body(15, weight: .semibold))
                     .foregroundStyle(t.ink)
                 Text("Online")
