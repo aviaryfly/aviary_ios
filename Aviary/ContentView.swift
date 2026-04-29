@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 struct ContentView: View {
@@ -244,6 +245,7 @@ struct FlyHubScreen: View {
     @State private var showUpload: Bool = false
     @State private var showReview: Bool = false
     @State private var showMapHome: Bool = false
+    @State private var showWeatherBriefing: Bool = false
     @State private var activeJob: AviaryJob?
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
@@ -271,6 +273,8 @@ struct FlyHubScreen: View {
                         VStack(spacing: 10) {
                             toolRow(icon: "navigation", title: "Map of nearby gigs",
                                     sub: "Pilot map view") { showMapHome = true }
+                            toolRow(icon: "cloud", title: "Weather briefing",
+                                    sub: "METAR & TAF for here and your next gig") { showWeatherBriefing = true }
                             toolRow(icon: "upload", title: "Hand off deliverables",
                                     sub: "Auto-upload over Wi-Fi") { showUpload = true }
                             toolRow(icon: "check-circle", title: "Complete & rate",
@@ -307,6 +311,8 @@ struct FlyHubScreen: View {
                         VStack(spacing: 10) {
                             toolRow(icon: "navigation", title: "Map of nearby gigs",
                                     sub: "Pilot map view") { showMapHome = true }
+                            toolRow(icon: "cloud", title: "Weather briefing",
+                                    sub: "METAR & TAF for here and \(activeJob.displayClient)") { showWeatherBriefing = true }
                             toolRow(icon: "upload", title: "Hand off deliverables",
                                     sub: activeJob.displayDeliverables.joined(separator: " · ")) { showUpload = true }
                             toolRow(icon: "check-circle", title: "Complete & rate",
@@ -327,6 +333,8 @@ struct FlyHubScreen: View {
                         VStack(spacing: 10) {
                             toolRow(icon: "navigation", title: "Map of nearby gigs",
                                     sub: "Pilot map view") { showMapHome = true }
+                            toolRow(icon: "cloud", title: "Weather briefing",
+                                    sub: "METAR & TAF for your current location") { showWeatherBriefing = true }
                             toolRow(icon: "upload", title: "Hand off deliverables",
                                     sub: "Available once you have an active gig") { showUpload = true }
                             toolRow(icon: "check-circle", title: "Complete & rate",
@@ -367,6 +375,18 @@ struct FlyHubScreen: View {
             NearbyGigsMapScreen(activeJob: activeJob)
                 .environment(\.theme, t)
                 .environmentObject(demoStore)
+        }
+        .sheet(isPresented: $showWeatherBriefing) {
+            WeatherBriefingScreen(
+                activeJob: demoStore.isOn ? nil : activeJob,
+                demoMissionLabel: demoStore.isOn ? "Real estate · 1247 Vine St" : nil,
+                demoMissionAddress: demoStore.isOn ? "1247 Vine St, Berkeley, CA" : nil,
+                demoMissionCoordinate: demoStore.isOn
+                    ? CLLocationCoordinate2D(latitude: 37.8814, longitude: -122.2683)
+                    : nil
+            )
+            .environment(\.theme, t)
+            .environmentObject(demoStore)
         }
         .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
             await loadActiveJob()
