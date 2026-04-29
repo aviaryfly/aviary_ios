@@ -9,6 +9,7 @@ struct MyJobsScreen: View {
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
     @State private var selectedJob: AviaryJob?
+    @State private var showcaseJobsTask: Task<Void, Never>?
 
     enum Filter: String, CaseIterable, Identifiable {
         case open, completed
@@ -24,16 +25,29 @@ struct MyJobsScreen: View {
     var body: some View {
         ZStack {
             t.bg.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    PageHeader(title: "My jobs", subtitle: subtitle)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Color.clear.frame(height: 1).id("my-jobs-top")
+                        PageHeader(title: "My jobs", subtitle: subtitle)
 
-                    filterRow
-                        .padding(.horizontal, 20)
-                        .padding(.top, 6)
-                        .padding(.bottom, 12)
+                        filterRow
+                            .padding(.horizontal, 20)
+                            .padding(.top, 6)
+                            .padding(.bottom, 12)
 
-                    content
+                        content
+                        Color.clear.frame(height: 1).id("my-jobs-bottom")
+                    }
+                }
+                .onAppear {
+                    applyShowcaseStep(proxy)
+                }
+                .onChange(of: demoStore.showcaseStep) { _, _ in
+                    applyShowcaseStep(proxy)
+                }
+                .onDisappear {
+                    showcaseJobsTask?.cancel()
                 }
             }
         }
@@ -43,6 +57,47 @@ struct MyJobsScreen: View {
         }
         .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
             await loadJobs()
+        }
+    }
+
+    private func applyShowcaseStep(_ proxy: ScrollViewProxy) {
+        showcaseJobsTask?.cancel()
+        guard let step = demoStore.showcaseStep, step.role == .customer else {
+            selectedJob = nil
+            return
+        }
+
+        switch step {
+        case .customerMyJobs:
+            selectedJob = nil
+            filter = .open
+            showcaseJobsTask = Task { @MainActor in
+                do {
+                    try await Task.sleep(nanoseconds: 650_000_000)
+                    guard demoStore.showcaseStep == .customerMyJobs else { return }
+                    withAnimation(.easeInOut(duration: 1.0)) {
+                        proxy.scrollTo("my-jobs-bottom", anchor: .bottom)
+                    }
+                    try await Task.sleep(nanoseconds: 1_150_000_000)
+                    guard demoStore.showcaseStep == .customerMyJobs else { return }
+                    filter = .completed
+                    withAnimation(.easeInOut(duration: 0.65)) {
+                        proxy.scrollTo("my-jobs-top", anchor: .top)
+                    }
+                    try await Task.sleep(nanoseconds: 850_000_000)
+                    guard demoStore.showcaseStep == .customerMyJobs else { return }
+                    withAnimation(.easeInOut(duration: 1.0)) {
+                        proxy.scrollTo("my-jobs-bottom", anchor: .bottom)
+                    }
+                } catch {
+                    return
+                }
+            }
+        case .customerJobDetail:
+            filter = .open
+            selectedJob = sourceJobs.first(where: { !$0.isCompleted }) ?? sourceJobs.first
+        default:
+            selectedJob = nil
         }
     }
 

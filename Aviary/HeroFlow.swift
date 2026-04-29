@@ -3,11 +3,13 @@ import SwiftUI
 struct HeroFlowView: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var demoStore: DemoModeStore
 
     enum Stage { case ping, accepting, confirmed, enRoute, expired }
     @State private var stage: Stage = .ping
     @State private var seconds: Int = 15
     @State private var timer: Timer?
+    @State private var showcaseTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -36,8 +38,15 @@ struct HeroFlowView: View {
                 bottomCard
             }
         }
-        .onAppear { startTimer() }
-        .onDisappear { timer?.invalidate() }
+        .onAppear {
+            startTimer()
+            startShowcaseScriptIfNeeded()
+        }
+        .onDisappear {
+            timer?.invalidate()
+            showcaseTask?.cancel()
+            showcaseTask = nil
+        }
     }
 
     private var routePath: Path {
@@ -270,9 +279,43 @@ struct HeroFlowView: View {
 
     private func accept() {
         timer?.invalidate()
-        stage = .accepting
+        withAnimation(.easeInOut(duration: 0.25)) {
+            stage = .accepting
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            stage = .confirmed
+            withAnimation(.easeInOut(duration: 0.25)) {
+                stage = .confirmed
+            }
+        }
+    }
+
+    /// When running inside the pilot showcase, walk the ping → accept → confirm → en route
+    /// stages on a fixed cadence so a viewer sees the same beats a real pilot would tap through.
+    private func startShowcaseScriptIfNeeded() {
+        guard demoStore.isOn,
+              demoStore.showcaseStep == .pilotAcceptPing else {
+            return
+        }
+        showcaseTask?.cancel()
+        showcaseTask = Task { @MainActor in
+            do {
+                // Dwell on the ping card so the viewer reads the gig.
+                try await Task.sleep(nanoseconds: 1_400_000_000)
+                guard !Task.isCancelled, stage == .ping else { return }
+                accept()
+
+                // accept() auto-progresses to .confirmed after 1.5s; wait that out
+                // plus a beat so the green check lands cleanly before "Start drive".
+                try await Task.sleep(nanoseconds: 2_700_000_000)
+                guard !Task.isCancelled, stage == .confirmed else { return }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    stage = .enRoute
+                }
+                // Stay on en-route — the parent will dismiss when the showcase
+                // step rolls over to the next phase.
+            } catch {
+                return
+            }
         }
     }
 }

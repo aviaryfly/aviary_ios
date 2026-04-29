@@ -266,6 +266,9 @@ struct AviaryIcon: View {
                 p.addLine(to: .init(x: 19, y: 12))
                 p.closeSubpath()
             })
+        case "pause":
+            filled(Path(roundedRect: .init(x: 6, y: 5, width: 4, height: 14), cornerRadius: 1))
+            filled(Path(roundedRect: .init(x: 14, y: 5, width: 4, height: 14), cornerRadius: 1))
         case "sliders":
             stroked(Path { p in
                 p.move(to: .init(x: 4, y: 6));  p.addLine(to: .init(x: 16, y: 6))

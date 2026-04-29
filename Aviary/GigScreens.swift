@@ -39,6 +39,7 @@ struct GigListScreen: View {
     @State private var jobs: [AviaryJob] = []
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
+    @State private var showcaseScrollTask: Task<Void, Never>?
     var onOpenGig: (AviaryJob?) -> Void = { _ in }
     var onOpenDemoGig: (DemoGig) -> Void = { _ in }
 
@@ -234,13 +235,52 @@ struct GigListScreen: View {
                     .padding(.bottom, 12)
                 }
 
-                ScrollView {
-                    content
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        Color.clear.frame(height: 1).id("gig-list-top")
+                        content
+                        Color.clear.frame(height: 1).id("gig-list-bottom")
+                    }
+                    .onAppear {
+                        runShowcaseScroll(proxy)
+                    }
+                    .onChange(of: demoStore.showcaseStep) { _, _ in
+                        runShowcaseScroll(proxy)
+                    }
+                    .onDisappear {
+                        showcaseScrollTask?.cancel()
+                    }
                 }
             }
         }
         .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
             await loadJobs()
+        }
+    }
+
+    private func runShowcaseScroll(_ proxy: ScrollViewProxy) {
+        showcaseScrollTask?.cancel()
+        guard demoStore.showcaseStep == .pilotGigBoard else { return }
+        showcaseScrollTask = Task { @MainActor in
+            sortIdx = 0
+            do {
+                try await Task.sleep(nanoseconds: 600_000_000)
+                guard demoStore.showcaseStep == .pilotGigBoard else { return }
+                withAnimation(.easeInOut(duration: 1.25)) {
+                    proxy.scrollTo("gig-list-bottom", anchor: .bottom)
+                }
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+                guard demoStore.showcaseStep == .pilotGigBoard else { return }
+                sortIdx = 1
+                withAnimation(.easeInOut(duration: 0.9)) {
+                    proxy.scrollTo("gig-list-top", anchor: .top)
+                }
+                try await Task.sleep(nanoseconds: 900_000_000)
+                guard demoStore.showcaseStep == .pilotGigBoard else { return }
+                sortIdx = 2
+            } catch {
+                return
+            }
         }
     }
 

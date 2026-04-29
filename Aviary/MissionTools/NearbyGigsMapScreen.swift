@@ -32,6 +32,7 @@ struct NearbyGigsMapScreen: View {
     @State private var selectedPinID: UUID?
     @State private var loadState: LoadState = .loading
     @State private var filter: GigFilter = .all
+    @State private var showcaseMapTask: Task<Void, Never>?
 
     private enum LoadState { case loading, ready, failed(String) }
     private enum GigFilter: String, CaseIterable {
@@ -65,7 +66,19 @@ struct NearbyGigsMapScreen: View {
                 bottomSheet
             }
         }
-        .task { await loadPins() }
+        .task {
+            await loadPins()
+            runShowcaseMap()
+        }
+        .onAppear {
+            runShowcaseMap()
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            runShowcaseMap()
+        }
+        .onDisappear {
+            showcaseMapTask?.cancel()
+        }
     }
 
     // MARK: - Map layer
@@ -414,6 +427,44 @@ struct NearbyGigsMapScreen: View {
                 ))
             }
             self.loadState = .ready
+        }
+    }
+
+    private func runShowcaseMap() {
+        showcaseMapTask?.cancel()
+        guard demoStore.showcaseStep == .pilotNearbyMap else { return }
+        showcaseMapTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 650_000_000)
+                guard demoStore.showcaseStep == .pilotNearbyMap else { return }
+                selectShowcaseFilter(.realEstate)
+
+                try await Task.sleep(nanoseconds: 950_000_000)
+                guard demoStore.showcaseStep == .pilotNearbyMap else { return }
+                selectShowcaseFilter(.inspection)
+
+                try await Task.sleep(nanoseconds: 950_000_000)
+                guard demoStore.showcaseStep == .pilotNearbyMap else { return }
+                selectShowcaseFilter(.mapping)
+
+                try await Task.sleep(nanoseconds: 950_000_000)
+                guard demoStore.showcaseStep == .pilotNearbyMap else { return }
+                selectShowcaseFilter(.all)
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func selectShowcaseFilter(_ nextFilter: GigFilter) {
+        filter = nextFilter
+        if let pin = filteredPins.first {
+            selectedPinID = pin.id
+            withAnimation(.easeInOut(duration: 0.45)) {
+                camera = .region(MKCoordinateRegion(center: pin.coordinate,
+                                                    latitudinalMeters: 1800,
+                                                    longitudinalMeters: 1800))
+            }
         }
     }
 

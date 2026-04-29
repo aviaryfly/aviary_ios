@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var themeManager = ThemeManager()
     @EnvironmentObject private var auth: AuthViewModel
+    @EnvironmentObject private var demoStore: DemoModeStore
 
     var body: some View {
         Group {
@@ -22,7 +23,23 @@ struct ContentView: View {
         .environment(\.theme, themeManager.tokens)
         .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         .tint(themeManager.tokens.accent)
-        .animation(.easeInOut(duration: 0.25), value: stateKey)
+        .overlay(alignment: .top) {
+            if let step = demoStore.showcaseStep {
+                DemoShowcaseHUD(step: step,
+                                progressText: demoStore.showcaseProgressText,
+                                stepProgress: demoStore.progressInStep,
+                                totalProgress: demoStore.totalProgress,
+                                upcomingStep: demoStore.upcomingStep,
+                                isPaused: demoStore.isPaused,
+                                onTogglePause: { demoStore.togglePause() },
+                                onStop: { demoStore.stopShowcase() })
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: stateKey)
+        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: demoStore.showcaseStep)
     }
 
     private var stateKey: String {
@@ -60,12 +77,131 @@ struct RootView: View {
     @Environment(\.theme) private var t
 
     var body: some View {
-        switch profile.role {
-        case .pilot:
-            PilotRootView(themeManager: themeManager, profile: profile)
-        case .customer:
-            CustomerRootView(themeManager: themeManager, profile: profile)
+        ZStack {
+            switch profile.role {
+            case .pilot:
+                PilotRootView(themeManager: themeManager, profile: profile)
+                    .transition(.opacity)
+            case .customer:
+                CustomerRootView(themeManager: themeManager, profile: profile)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.35), value: profile.role)
+    }
+}
+
+private struct DemoShowcaseHUD: View {
+    @Environment(\.theme) private var t
+    let step: DemoShowcaseStep
+    let progressText: String?
+    let stepProgress: Double
+    let totalProgress: Double
+    let upcomingStep: DemoShowcaseStep?
+    let isPaused: Bool
+    var onTogglePause: () -> Void
+    var onStop: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(t.accent)
+                    AviaryIcon(name: step.role == .pilot ? "drone" : "briefcase",
+                               size: 16,
+                               color: t.accentInk)
+                }
+                .frame(width: 32, height: 32)
+                .opacity(isPaused ? 0.55 : 1)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 6) {
+                        Text(progressText ?? "Demo")
+                            .font(AviaryFont.mono(11, weight: .semibold))
+                            .foregroundStyle(t.accent)
+                        if isPaused {
+                            Text("PAUSED")
+                                .font(AviaryFont.mono(10, weight: .heavy))
+                                .foregroundStyle(t.accentInk)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(t.accent))
+                        }
+                        Text(step.title)
+                            .font(AviaryFont.body(13, weight: .semibold))
+                            .foregroundStyle(t.ink)
+                            .lineLimit(1)
+                    }
+                    Text(secondaryLine)
+                        .font(AviaryFont.body(11))
+                        .foregroundStyle(t.ink3)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Button(action: onTogglePause) {
+                    AviaryIcon(name: isPaused ? "play" : "pause",
+                               size: 14,
+                               color: t.ink2)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(t.surface2))
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onStop) {
+                    AviaryIcon(name: "x", size: 15, color: t.ink2)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(t.surface2))
+                }
+                .buttonStyle(.plain)
+            }
+
+            DemoProgressBar(stepProgress: stepProgress,
+                            totalProgress: totalProgress,
+                            tint: t.accent,
+                            track: t.line)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(t.surface.opacity(0.96))
+                .shadow(color: .black.opacity(0.12), radius: 18, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(t.lineStrong)
+        )
+    }
+
+    private var secondaryLine: String {
+        if let upcomingStep, stepProgress > 0.7 {
+            return "Up next · \(upcomingStep.title)"
+        }
+        return step.subtitle
+    }
+}
+
+private struct DemoProgressBar: View {
+    let stepProgress: Double
+    let totalProgress: Double
+    let tint: Color
+    let track: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            ZStack(alignment: .leading) {
+                Capsule().fill(track.opacity(0.45))
+                Capsule()
+                    .fill(tint)
+                    .frame(width: max(0, width * CGFloat(totalProgress)))
+                    .animation(.linear(duration: 0.12), value: totalProgress)
+            }
+        }
+        .frame(height: 3)
+        .clipShape(Capsule())
     }
 }
 
@@ -146,6 +282,7 @@ struct PilotRootView: View {
         .sheet(isPresented: $showAcceptPing) {
             HeroFlowView()
                 .environment(\.theme, t)
+                .environmentObject(demoStore)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
         .sheet(isPresented: $showGigDetail) {
@@ -170,6 +307,7 @@ struct PilotRootView: View {
         }
         .fullScreenCover(isPresented: $showInFlight) {
             InFlightScreen()
+                .environmentObject(demoStore)
         }
         .sheet(isPresented: $showMessages) {
             MessagesScreen(profile: profile, showsCloseButton: true)
@@ -182,6 +320,86 @@ struct PilotRootView: View {
                 .environmentObject(demoStore)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
+        .onAppear {
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
+        .onChange(of: demoStore.showcaseStep) { _, step in
+            applyShowcaseStep(step)
+        }
+        .onChange(of: demoStore.showcaseRunID) { _, _ in
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
+    }
+
+    private enum PilotShowcaseSheet {
+        case acceptPing, gigDetail, inFlight, messages, nearbyMap
+    }
+
+    private func applyShowcaseStep(_ step: DemoShowcaseStep?) {
+        guard let step else {
+            setShowcaseSheet(nil)
+            return
+        }
+        guard step.role == .pilot else {
+            setShowcaseSheet(nil)
+            return
+        }
+
+        switch step {
+        case .pilotHome:
+            setShowcaseSheet(nil)
+            tab = .home
+        case .pilotGigDetail:
+            selectedGig = nil
+            selectedDemoGig = nil
+            // Detail opens as if tapped from the gig board the previous step left us on,
+            // so don't yank the user back to home.
+            setShowcaseSheet(.gigDetail)
+        case .pilotAcceptPing:
+            setShowcaseSheet(.acceptPing)
+        case .pilotGigBoard:
+            setShowcaseSheet(nil)
+            tab = .gigs
+        case .pilotNearbyMap:
+            // FlyHubScreen owns its own NearbyGigsMap sheet via its showMapHome state.
+            setShowcaseSheet(nil)
+            tab = .fly
+        case .pilotFly, .pilotChecklist, .pilotWeather, .pilotDeliverables, .pilotReview:
+            setShowcaseSheet(nil)
+            tab = .fly
+        case .pilotInFlight:
+            setShowcaseSheet(.inFlight)
+            tab = .fly
+        case .pilotMessages:
+            setShowcaseSheet(.messages)
+            tab = .me
+        case .pilotProfile, .pilotEarnings:
+            setShowcaseSheet(nil)
+            tab = .me
+        default:
+            setShowcaseSheet(nil)
+        }
+    }
+
+    /// Idempotent sheet selector — only flips bools whose desired value differs,
+    /// avoiding sheet dismiss/present flicker when an in-screen auto-action already set state.
+    private func setShowcaseSheet(_ which: PilotShowcaseSheet?) {
+        let wantAcceptPing = (which == .acceptPing)
+        let wantGigDetail = (which == .gigDetail)
+        let wantInFlight = (which == .inFlight)
+        let wantMessages = (which == .messages)
+        let wantNearbyMap = (which == .nearbyMap)
+
+        if showAcceptPing != wantAcceptPing { showAcceptPing = wantAcceptPing }
+        if showGigDetail != wantGigDetail { showGigDetail = wantGigDetail }
+        if showInFlight != wantInFlight { showInFlight = wantInFlight }
+        if showMessages != wantMessages { showMessages = wantMessages }
+        if showNearbyGigsMap != wantNearbyMap { showNearbyGigsMap = wantNearbyMap }
+
+        if which != .gigDetail {
+            if selectedGig != nil { selectedGig = nil }
+            if selectedDemoGig != nil { selectedDemoGig = nil }
+        }
     }
 }
 
@@ -191,6 +409,7 @@ struct CustomerRootView: View {
     @ObservedObject var themeManager: ThemeManager
     let profile: UserProfile
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     @State private var tab: CustomerTab
     @State private var showMessages: Bool = false
 
@@ -228,6 +447,42 @@ struct CustomerRootView: View {
             MessagesScreen(profile: profile, showsCloseButton: true)
                 .environment(\.theme, t)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
+        }
+        .onAppear {
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
+        .onChange(of: demoStore.showcaseStep) { _, step in
+            applyShowcaseStep(step)
+        }
+        .onChange(of: demoStore.showcaseRunID) { _, _ in
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
+    }
+
+    private func applyShowcaseStep(_ step: DemoShowcaseStep?) {
+        guard let step else {
+            showMessages = false
+            return
+        }
+        guard step.role == .customer else {
+            showMessages = false
+            return
+        }
+
+        showMessages = false
+        switch step {
+        case .customerHome:
+            tab = .home
+        case .customerPostJob:
+            tab = .postJob
+        case .customerMyJobs, .customerJobDetail:
+            tab = .myJobs
+        case .customerMessages:
+            tab = .messages
+        case .customerProfile:
+            tab = .me
+        default:
+            break
         }
     }
 }
@@ -350,6 +605,7 @@ struct FlyHubScreen: View {
             PreFlightScreen(onTakeoff: { showPreFlight = false; onTakeoff() },
                             onBack: { showPreFlight = false })
                 .environment(\.theme, t)
+                .environmentObject(demoStore)
         }
         .sheet(isPresented: $showUpload) {
             UploadScreen(job: activeJob, onSubmit: { _ in
@@ -391,6 +647,15 @@ struct FlyHubScreen: View {
         .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
             await loadActiveJob()
         }
+        .onAppear {
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
+        .onChange(of: demoStore.showcaseStep) { _, step in
+            applyShowcaseStep(step)
+        }
+        .onChange(of: demoStore.showcaseRunID) { _, _ in
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
     }
 
     private func loadActiveJob() async {
@@ -408,6 +673,60 @@ struct FlyHubScreen: View {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private enum FlyHubShowcaseSheet {
+        case preflight, upload, review, mapHome, weather
+    }
+
+    private func applyShowcaseStep(_ step: DemoShowcaseStep?) {
+        guard let step else {
+            setMissionSheet(nil)
+            return
+        }
+        guard step.role == .pilot else {
+            setMissionSheet(nil)
+            return
+        }
+
+        switch step {
+        case .pilotFly:
+            setMissionSheet(nil)
+        case .pilotChecklist:
+            setMissionSheet(.preflight)
+        case .pilotWeather:
+            setMissionSheet(.weather)
+        case .pilotNearbyMap:
+            setMissionSheet(.mapHome)
+        case .pilotDeliverables:
+            setMissionSheet(.upload)
+        case .pilotReview:
+            setMissionSheet(.review)
+        default:
+            setMissionSheet(nil)
+        }
+    }
+
+    private func setMissionSheet(_ which: FlyHubShowcaseSheet?) {
+        let wantPreflight = (which == .preflight)
+        let wantUpload = (which == .upload)
+        let wantReview = (which == .review)
+        let wantMap = (which == .mapHome)
+        let wantWeather = (which == .weather)
+
+        if showPreFlight != wantPreflight { showPreFlight = wantPreflight }
+        if showUpload != wantUpload { showUpload = wantUpload }
+        if showReview != wantReview { showReview = wantReview }
+        if showMapHome != wantMap { showMapHome = wantMap }
+        if showWeatherBriefing != wantWeather { showWeatherBriefing = wantWeather }
+    }
+
+    private func closeMissionSheets() {
+        showPreFlight = false
+        showUpload = false
+        showReview = false
+        showMapHome = false
+        showWeatherBriefing = false
     }
 
     private var noActiveGigCard: some View {

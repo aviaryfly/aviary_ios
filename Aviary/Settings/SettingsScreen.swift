@@ -65,14 +65,16 @@ struct SettingsScreen: View {
                                 Rectangle().fill(t.line).frame(height: 1)
                                 demoRoleRow
                             }
+                            Rectangle().fill(t.line).frame(height: 1)
+                            demoRunRow(flow: .pilot)
+                            Rectangle().fill(t.line).frame(height: 1)
+                            demoRunRow(flow: .customer)
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
 
-                    Text(demoStore.isOn
-                         ? "Demo mode is on. Pick which side of the app to preview — your real account is untouched."
-                         : "When demo mode is on, the app shows a canonical demo profile. Your real account is untouched.")
+                    Text(demoModeFootnote)
                         .font(AviaryFont.body(12))
                         .foregroundStyle(t.ink3)
                         .lineSpacing(2)
@@ -140,6 +142,64 @@ struct SettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private func demoRunRow(flow: DemoShowcaseFlow) -> some View {
+        let isThisFlowRunning = demoStore.isShowcaseRunning && demoStore.currentFlow == flow
+        return HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(t.accentSoft)
+                AviaryIcon(name: isThisFlowRunning ? "x" : "play",
+                           size: 18,
+                           color: t.accent)
+            }
+            .frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(flow.title)
+                    .font(AviaryFont.body(14, weight: .medium))
+                    .foregroundStyle(t.ink)
+                Text(rowSubtitle(for: flow, isRunning: isThisFlowRunning))
+                    .font(AviaryFont.body(12))
+                    .foregroundStyle(t.ink3)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 12)
+            Button {
+                if isThisFlowRunning {
+                    demoStore.stopShowcase()
+                } else {
+                    demoStore.startShowcase(flow: flow)
+                    dismiss()
+                }
+            } label: {
+                Text(isThisFlowRunning ? "Stop" : "Start")
+                    .font(AviaryFont.body(12, weight: .semibold))
+                    .foregroundStyle(t.accentInk)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(t.accent))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func rowSubtitle(for flow: DemoShowcaseFlow, isRunning: Bool) -> String {
+        if isRunning, let step = demoStore.showcaseStep {
+            return "\(demoStore.showcaseProgressText ?? "") · \(step.title)"
+        }
+        return flow.subtitle
+    }
+
+    private var demoModeFootnote: String {
+        if demoStore.isShowcaseRunning, let flow = demoStore.currentFlow {
+            return "Running \(flow.title.lowercased()). The HUD up top tracks progress; tap pause or stop any time."
+        }
+        if demoStore.isOn {
+            return "Demo mode is on. Run pilot demo or customer demo to auto-walk that side end-to-end — your real account is untouched."
+        }
+        return "Demo mode shows a canonical demo profile. Pilot demo walks ping → fly → deliver → rate. Customer demo walks post → track → message."
     }
 
     private var demoToggleRow: some View {

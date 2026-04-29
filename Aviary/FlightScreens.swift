@@ -6,8 +6,11 @@ import UniformTypeIdentifiers
 
 struct PreFlightScreen: View {
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     var onTakeoff: () -> Void = {}
     var onBack: () -> Void = {}
+    @State private var autoTakeoffTask: Task<Void, Never>?
+    @State private var showcaseTakeoffPressed = false
 
     private struct Item: Identifiable { let id = UUID(); var label: String; var value: String?; var done: Bool; var warn: Bool = false }
     private let aircraft: [Item] = [
@@ -46,6 +49,37 @@ struct PreFlightScreen: View {
                 }
 
                 footer
+            }
+        }
+        .onAppear { startAutoTakeoffIfNeeded() }
+        .onDisappear {
+            autoTakeoffTask?.cancel()
+            autoTakeoffTask = nil
+            showcaseTakeoffPressed = false
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            startAutoTakeoffIfNeeded()
+        }
+    }
+
+    private func startAutoTakeoffIfNeeded() {
+        guard demoStore.isOn,
+              demoStore.showcaseStep == .pilotChecklist else { return }
+        autoTakeoffTask?.cancel()
+        autoTakeoffTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 1_900_000_000)
+                guard !Task.isCancelled,
+                      demoStore.showcaseStep == .pilotChecklist else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    showcaseTakeoffPressed = true
+                }
+                try await Task.sleep(nanoseconds: 220_000_000)
+                guard !Task.isCancelled,
+                      demoStore.showcaseStep == .pilotChecklist else { return }
+                onTakeoff()
+            } catch {
+                return
             }
         }
     }
@@ -125,6 +159,8 @@ struct PreFlightScreen: View {
     private var footer: some View {
         VStack {
             PrimaryButton(title: "Take off", systemTrailing: "arrow.right", action: onTakeoff)
+                .scaleEffect(showcaseTakeoffPressed ? 0.96 : 1)
+                .animation(.easeInOut(duration: 0.18), value: showcaseTakeoffPressed)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -141,12 +177,16 @@ struct PreFlightScreen: View {
 
 struct InFlightScreen: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var demoStore: DemoModeStore
 
     private let bg = Color(hex: 0x0B0E14)
     private let amber = Color(hex: 0xFFB23A)
     private let ink = Color(hex: 0xF4F5F7)
     private let dim = Color(hex: 0x8B92A0)
     private let good = Color(hex: 0x10A36F)
+
+    @State private var stopButtonPressed = false
+    @State private var autoEndTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -163,6 +203,39 @@ struct InFlightScreen: View {
             closeButton
         }
         .preferredColorScheme(.dark)
+        .onAppear { startAutoEndIfNeeded() }
+        .onDisappear {
+            autoEndTask?.cancel()
+            autoEndTask = nil
+            stopButtonPressed = false
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            startAutoEndIfNeeded()
+        }
+    }
+
+    /// In showcase mode, dwell on the HUD then visibly press the red stop button before
+    /// the parent rolls the showcase to the deliverables step.
+    private func startAutoEndIfNeeded() {
+        guard demoStore.isOn,
+              demoStore.showcaseStep == .pilotInFlight else { return }
+        autoEndTask?.cancel()
+        autoEndTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 3_500_000_000)
+                guard !Task.isCancelled,
+                      demoStore.showcaseStep == .pilotInFlight else { return }
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    stopButtonPressed = true
+                }
+                try await Task.sleep(nanoseconds: 350_000_000)
+                guard !Task.isCancelled,
+                      demoStore.showcaseStep == .pilotInFlight else { return }
+                dismiss()
+            } catch {
+                return
+            }
+        }
     }
 
     private var cameraFeed: some View {
@@ -385,6 +458,8 @@ struct InFlightScreen: View {
                 Circle().fill(Color(hex: 0xE5484D))
                     .frame(width: 72, height: 72)
                     .overlay(Circle().strokeBorder(ink, lineWidth: 4))
+                    .scaleEffect(stopButtonPressed ? 0.92 : 1)
+                    .animation(.easeInOut(duration: 0.15), value: stopButtonPressed)
                 Spacer()
                 ZStack {
                     Circle().fill(Color.white.opacity(0.08))
@@ -447,6 +522,7 @@ struct UploadScreen: View {
     @State private var isSourceDialogPresented: Bool = false
     @State private var isSubmitting: Bool = false
     @State private var errorMessage: String?
+    @State private var showcaseUploadTask: Task<Void, Never>?
 
     private var deliverables: [String] {
         job?.displayDeliverables ?? [
@@ -544,6 +620,15 @@ struct UploadScreen: View {
             Button("Photo Library") { isPickerPresented = true }
             Button("Files") { isFileImporterPresented = true }
             Button("Cancel", role: .cancel) {}
+        }
+        .onAppear {
+            seedShowcaseAssetsIfNeeded()
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            seedShowcaseAssetsIfNeeded()
+        }
+        .onDisappear {
+            showcaseUploadTask?.cancel()
         }
     }
 
@@ -904,6 +989,51 @@ struct UploadScreen: View {
         }
     }
 
+    private func seedShowcaseAssetsIfNeeded() {
+        guard demoStore.isOn,
+              demoStore.showcaseStep == .pilotDeliverables,
+              assets.isEmpty else { return }
+
+        showcaseUploadTask?.cancel()
+        assets = [
+            UploadAsset(pickerItem: nil, fileURL: nil, image: nil,
+                        isVideo: false, sizeBytes: 4_800_000, progress: 0, done: false, failed: false),
+            UploadAsset(pickerItem: nil, fileURL: nil, image: nil,
+                        isVideo: false, sizeBytes: 5_100_000, progress: 0, done: false, failed: false),
+            UploadAsset(pickerItem: nil, fileURL: nil, image: nil,
+                        isVideo: true, sizeBytes: 48_000_000, progress: 0, done: false, failed: false),
+            UploadAsset(pickerItem: nil, fileURL: nil, image: nil,
+                        isVideo: false, sizeBytes: 4_300_000, progress: 0, done: false, failed: false)
+        ]
+
+        let ids = assets.map(\.id)
+        showcaseUploadTask = Task { @MainActor in
+            do {
+                for tick in 1...18 {
+                    try await Task.sleep(nanoseconds: 120_000_000)
+                    guard demoStore.showcaseStep == .pilotDeliverables else { return }
+                    for (offset, id) in ids.enumerated() {
+                        let progress = min(1, max(0, Double(tick - offset * 2) / 12))
+                        update(id: id) {
+                            $0.progress = progress
+                            $0.done = progress >= 1
+                        }
+                    }
+                }
+
+                // After uploads complete, dwell briefly so the viewer reads "ready",
+                // then auto-tap submit so the showcase advances to the rating step.
+                try await Task.sleep(nanoseconds: 900_000_000)
+                guard !Task.isCancelled,
+                      demoStore.showcaseStep == .pilotDeliverables,
+                      canSubmit else { return }
+                submit()
+            } catch {
+                return
+            }
+        }
+    }
+
     private func describeDeliverables() -> [String] {
         let photos = assets.filter { !$0.isVideo }.count
         let videos = assets.filter(\.isVideo).count
@@ -938,8 +1068,11 @@ struct ReviewCompleteScreen: View {
     @State private var note: String = ""
     @State private var isSubmitting: Bool = false
     @State private var errorMessage: String?
+    @State private var showcaseTask: Task<Void, Never>?
 
     private let availableTags = ["Clear brief", "Fair pay", "Easy site", "Friendly", "On time", "Tough access"]
+    private let showcaseTagPicks = ["Clear brief", "On time", "Friendly"]
+    private let showcaseNote = "Easy access, friendly contact on site. Twilight set turned out beautifully."
 
     private var clientName: String { job?.displayClient ?? "Marin Realty Co." }
     private var payoutText: String {
@@ -1009,6 +1142,50 @@ struct ReviewCompleteScreen: View {
                               action: submit)
                     .padding(.horizontal, 24)
                     .padding(.bottom, 28)
+            }
+        }
+        .onAppear { startShowcaseScriptIfNeeded() }
+        .onDisappear {
+            showcaseTask?.cancel()
+            showcaseTask = nil
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            startShowcaseScriptIfNeeded()
+        }
+    }
+
+    /// Walks through the rating: highlight stars, tap a few tags one-by-one,
+    /// type a short note character-by-character, then submit.
+    private func startShowcaseScriptIfNeeded() {
+        guard demoStore.isOn,
+              demoStore.showcaseStep == .pilotReview else { return }
+        showcaseTask?.cancel()
+        // Reset so the script always starts from a clean slate.
+        tags = []
+        note = ""
+        showcaseTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 700_000_000)
+                guard demoStore.showcaseStep == .pilotReview else { return }
+                for tag in showcaseTagPicks {
+                    guard demoStore.showcaseStep == .pilotReview else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        _ = tags.insert(tag)
+                    }
+                    try await Task.sleep(nanoseconds: 380_000_000)
+                }
+                try await Task.sleep(nanoseconds: 250_000_000)
+                guard demoStore.showcaseStep == .pilotReview else { return }
+                for ch in showcaseNote {
+                    guard demoStore.showcaseStep == .pilotReview else { return }
+                    note.append(ch)
+                    try await Task.sleep(nanoseconds: 28_000_000)
+                }
+                try await Task.sleep(nanoseconds: 500_000_000)
+                guard demoStore.showcaseStep == .pilotReview, !isSubmitting else { return }
+                submit()
+            } catch {
+                return
             }
         }
     }

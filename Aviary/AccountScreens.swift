@@ -488,6 +488,12 @@ struct ProfileScreen: View {
         .task(id: credentialsLoadKey) {
             await reloadCredentialsSummary()
         }
+        .onAppear {
+            applyShowcaseStep(demoStore.showcaseStep)
+        }
+        .onChange(of: demoStore.showcaseStep) { _, step in
+            applyShowcaseStep(step)
+        }
     }
 
     private var realPilotID: UUID? {
@@ -499,6 +505,30 @@ struct ProfileScreen: View {
 
     private var credentialsLoadKey: String {
         "\(profile.role.rawValue)-\(realPilotID?.uuidString ?? "none")-\(demoStore.isOn)"
+    }
+
+    private func applyShowcaseStep(_ step: DemoShowcaseStep?) {
+        guard let step else {
+            showEarnings = false
+            return
+        }
+
+        switch step {
+        case .pilotProfile, .customerProfile:
+            showSettings = false
+            showEarnings = false
+            showCertifications = false
+            showEquipment = false
+            showInsurance = false
+        case .pilotEarnings:
+            showSettings = false
+            showCertifications = false
+            showEquipment = false
+            showInsurance = false
+            showEarnings = true
+        default:
+            break
+        }
     }
 
     private var certificationsValue: String {
@@ -724,6 +754,11 @@ struct MessagesScreen: View {
     @State private var errorMessage: String?
     @State private var draftMessage: String = ""
 
+    // Showcase: simulated typing in the demo composer + an extra outgoing bubble after "send".
+    @State private var showcaseDraft: String = ""
+    @State private var showcaseSentMessages: [String] = []
+    @State private var showcaseComposerTask: Task<Void, Never>?
+
     var body: some View {
         ZStack {
             t.bg.ignoresSafeArea()
@@ -739,6 +774,52 @@ struct MessagesScreen: View {
         }
         .task(id: "\(profile?.id.uuidString ?? "none")-\(demoStore.isOn)") {
             await loadConversations()
+        }
+        .onAppear { startComposerShowcaseIfNeeded() }
+        .onDisappear {
+            showcaseComposerTask?.cancel()
+            showcaseComposerTask = nil
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            startComposerShowcaseIfNeeded()
+        }
+    }
+
+    /// In a messages showcase step, type a follow-up message into the composer
+    /// character-by-character, then "send" so a new outgoing bubble appears in the thread.
+    private func startComposerShowcaseIfNeeded() {
+        guard demoStore.isOn else { return }
+        let body: String
+        switch demoStore.showcaseStep {
+        case .customerMessages:
+            body = "Sounds great — see you at 3:30!"
+        case .pilotMessages:
+            body = "Just landed. Twilight set turned out clean — uploading now."
+        default:
+            return
+        }
+        let activeStep = demoStore.showcaseStep
+        showcaseComposerTask?.cancel()
+        showcaseDraft = ""
+        showcaseSentMessages = []
+        showcaseComposerTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 1_400_000_000)
+                guard demoStore.showcaseStep == activeStep else { return }
+                for ch in body {
+                    guard demoStore.showcaseStep == activeStep else { return }
+                    showcaseDraft.append(ch)
+                    try await Task.sleep(nanoseconds: 36_000_000)
+                }
+                try await Task.sleep(nanoseconds: 480_000_000)
+                guard demoStore.showcaseStep == activeStep else { return }
+                withAnimation(.easeOut(duration: 0.3)) {
+                    showcaseSentMessages.append(body)
+                    showcaseDraft = ""
+                }
+            } catch {
+                return
+            }
         }
     }
 
@@ -944,6 +1025,10 @@ struct MessagesScreen: View {
                         bubble(text: "Done. Sending the add-on now.",
                                time: nil, incoming: true)
                     }
+                    ForEach(Array(showcaseSentMessages.enumerated()), id: \.offset) { _, body in
+                        bubble(text: body, time: "now ✓", incoming: false)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
                     typingBubble
                 }
                 .padding(.horizontal, 16)
@@ -1073,21 +1158,36 @@ struct MessagesScreen: View {
     }
 
     private var demoComposer: some View {
-        HStack(spacing: 10) {
+        let isTyping = !showcaseDraft.isEmpty
+        return HStack(spacing: 10) {
             AviaryIcon(name: "plus", size: 22, color: t.ink3)
             HStack {
-                Text("Message...")
-                    .font(AviaryFont.body(14))
-                    .foregroundStyle(t.ink4)
-                Spacer()
+                if isTyping {
+                    Text(showcaseDraft)
+                        .font(AviaryFont.body(14))
+                        .foregroundStyle(t.ink)
+                    Rectangle()
+                        .fill(t.accent)
+                        .frame(width: 1.5, height: 16)
+                        .opacity(0.85)
+                } else {
+                    Text("Message...")
+                        .font(AviaryFont.body(14))
+                        .foregroundStyle(t.ink4)
+                }
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
             .background(Capsule().fill(t.surface2))
+            .animation(.easeOut(duration: 0.06), value: showcaseDraft)
             ZStack {
-                Circle().fill(t.accent)
-                AviaryIcon(name: "arrow-right", size: 18, color: t.accentInk)
+                Circle().fill(isTyping ? t.accent : t.surface2)
+                AviaryIcon(name: "arrow-right",
+                           size: 18,
+                           color: isTyping ? t.accentInk : t.ink4)
             }
             .frame(width: 36, height: 36)
+            .animation(.easeInOut(duration: 0.18), value: isTyping)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -1187,11 +1287,13 @@ struct MessagesScreen: View {
 
 struct ClientRequestScreen: View {
     @Environment(\.theme) private var t
+    @EnvironmentObject private var demoStore: DemoModeStore
     let profile: UserProfile
     var onPosted: (AviaryJob) -> Void = { _ in }
     @State private var typeIdx: Int = 0
     @State private var isPosting: Bool = false
     @State private var errorMessage: String?
+    @State private var showcaseTypeTask: Task<Void, Never>?
 
     private struct GigType {
         let label: String
@@ -1331,6 +1433,15 @@ struct ClientRequestScreen: View {
                 .padding(.top, -28)
             }
         }
+        .onAppear {
+            runShowcaseTypePicker()
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            runShowcaseTypePicker()
+        }
+        .onDisappear {
+            showcaseTypeTask?.cancel()
+        }
     }
 
     private var selected: GigType { types[typeIdx] }
@@ -1395,6 +1506,30 @@ struct ClientRequestScreen: View {
                     isPosting = false
                     errorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func runShowcaseTypePicker() {
+        showcaseTypeTask?.cancel()
+        guard demoStore.showcaseStep == .customerPostJob else { return }
+        showcaseTypeTask = Task { @MainActor in
+            do {
+                let sequence = [0, 1, 2, 3, 0]
+                for idx in sequence {
+                    guard demoStore.showcaseStep == .customerPostJob else { return }
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        typeIdx = idx
+                    }
+                    try await Task.sleep(nanoseconds: 700_000_000)
+                }
+                // After surveying the types, dwell briefly on the chosen one,
+                // then auto-tap "Post gig" so the showcase advances to My Jobs.
+                try await Task.sleep(nanoseconds: 600_000_000)
+                guard demoStore.showcaseStep == .customerPostJob, !isPosting else { return }
+                postGig()
+            } catch {
+                return
             }
         }
     }
