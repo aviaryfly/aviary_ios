@@ -412,6 +412,8 @@ struct CustomerRootView: View {
     @EnvironmentObject private var demoStore: DemoModeStore
     @State private var tab: CustomerTab
     @State private var showMessages: Bool = false
+    @State private var showMatching: Bool = false
+    @State private var showRate: Bool = false
 
     init(themeManager: ThemeManager, profile: UserProfile) {
         self.themeManager = themeManager
@@ -448,6 +450,16 @@ struct CustomerRootView: View {
                 .environment(\.theme, t)
                 .preferredColorScheme(themeManager.theme == .hangar ? .dark : .light)
         }
+        .fullScreenCover(isPresented: $showMatching) {
+            CustomerMatchingScreen()
+                .environment(\.theme, t)
+                .environmentObject(demoStore)
+        }
+        .fullScreenCover(isPresented: $showRate) {
+            CustomerRateScreen()
+                .environment(\.theme, t)
+                .environmentObject(demoStore)
+        }
         .onAppear {
             applyShowcaseStep(demoStore.showcaseStep)
         }
@@ -461,29 +473,47 @@ struct CustomerRootView: View {
 
     private func applyShowcaseStep(_ step: DemoShowcaseStep?) {
         guard let step else {
-            showMessages = false
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             return
         }
         guard step.role == .customer else {
-            showMessages = false
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             return
         }
 
-        showMessages = false
         switch step {
         case .customerHome:
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             tab = .home
         case .customerPostJob:
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             tab = .postJob
+        case .customerMatching:
+            // Stay on .postJob underneath so the matching cover layers over the
+            // posting context the user just left.
+            tab = .postJob
+            setCustomerOverlays(messages: false, matching: true, rate: false)
         case .customerMyJobs, .customerJobDetail:
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             tab = .myJobs
         case .customerMessages:
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             tab = .messages
+        case .customerRate:
+            tab = .myJobs
+            setCustomerOverlays(messages: false, matching: false, rate: true)
         case .customerProfile:
+            setCustomerOverlays(messages: false, matching: false, rate: false)
             tab = .me
         default:
             break
         }
+    }
+
+    private func setCustomerOverlays(messages: Bool, matching: Bool, rate: Bool) {
+        if showMessages != messages { showMessages = messages }
+        if showMatching != matching { showMatching = matching }
+        if showRate != rate { showRate = rate }
     }
 }
 
@@ -772,11 +802,12 @@ struct FlyHubScreen: View {
                     .foregroundStyle(t.ink3)
                     .lineSpacing(2)
                 HStack(spacing: 10) {
-                    SecondaryButton(title: "Checklist") { showPreFlight = true }
-                        .frame(maxWidth: 150)
+                    SecondaryButton(title: "Checklist", fullWidth: true) { showPreFlight = true }
+                        .frame(maxWidth: .infinity)
                     PrimaryButton(title: "Take off",
                                   systemTrailing: "arrow.right",
                                   action: onTakeoff)
+                        .frame(maxWidth: .infinity)
                 }
                 .padding(.top, 4)
             }

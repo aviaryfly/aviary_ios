@@ -54,6 +54,7 @@ struct MyJobsScreen: View {
         .sheet(item: $selectedJob) { job in
             CustomerJobDetailScreen(job: job)
                 .environment(\.theme, t)
+                .environmentObject(demoStore)
         }
         .task(id: "\(profile.id.uuidString)-\(demoStore.isOn)") {
             await loadJobs()
@@ -362,7 +363,12 @@ struct MyJobsScreen: View {
 private struct CustomerJobDetailScreen: View {
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var demoStore: DemoModeStore
     let job: AviaryJob
+
+    @State private var liveStatusIdx: Int = 0
+    @State private var liveEtaMinutes: Int = 22
+    @State private var statusTask: Task<Void, Never>?
 
     private var detailChipStyle: Chip.Style {
         switch job.normalizedStatus {
@@ -371,6 +377,23 @@ private struct CustomerJobDetailScreen: View {
         default:                            return .accent
         }
     }
+
+    private var showsLiveTimeline: Bool {
+        demoStore.isOn && !job.isCompleted && job.normalizedStatus != "cancelled"
+    }
+
+    private struct StatusBeat {
+        let label: String
+        let detail: String
+    }
+
+    private let liveStatuses: [StatusBeat] = [
+        .init(label: "Pilot accepted",   detail: "Casey locked the gig in"),
+        .init(label: "En route",         detail: "Heading to 1247 Vine St"),
+        .init(label: "On site",          detail: "Pre-flight checks"),
+        .init(label: "Filming",          detail: "Capturing exterior + flyover"),
+        .init(label: "Wrapping up",      detail: "Editing and uploading deliverables")
+    ]
 
     var body: some View {
         ZStack {
@@ -385,7 +408,8 @@ private struct CustomerJobDetailScreen: View {
                             .font(AviaryFont.body(16, weight: .semibold))
                             .foregroundStyle(t.ink)
                         Spacer()
-                        Chip(text: job.statusLabel, style: detailChipStyle)
+                        Chip(text: showsLiveTimeline ? liveStatuses[liveStatusIdx].label : job.statusLabel,
+                             style: showsLiveTimeline ? .accent : detailChipStyle)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -408,6 +432,20 @@ private struct CustomerJobDetailScreen: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 18)
+
+                    if showsLiveTimeline {
+                        pilotCard
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 18)
+
+                        SectionTitle(text: "Live status")
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 6)
+
+                        statusTimeline
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 18)
+                    }
 
                     SectionTitle(text: "Deliverables")
                         .padding(.horizontal, 20)
@@ -435,6 +473,141 @@ private struct CustomerJobDetailScreen: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
                 }
+            }
+        }
+        .onAppear { startLiveStatusIfNeeded() }
+        .onDisappear {
+            statusTask?.cancel()
+            statusTask = nil
+        }
+        .onChange(of: demoStore.showcaseStep) { _, _ in
+            startLiveStatusIfNeeded()
+        }
+    }
+
+    private var pilotCard: some View {
+        AviaryCard(padding: 16, shadowed: true) {
+            HStack(spacing: 14) {
+                Avatar(size: 52, initials: "CP", background: t.accentSoft)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(job.displayPilot)
+                        .font(AviaryFont.body(15, weight: .semibold))
+                        .foregroundStyle(t.ink)
+                    Text("★ 4.94 · DJI Mavic 3 · Part-107")
+                        .font(AviaryFont.body(12))
+                        .foregroundStyle(t.ink3)
+                    HStack(spacing: 6) {
+                        AviaryIcon(name: "clock", size: 12, color: t.accent)
+                        Text("\(liveEtaMinutes) min away")
+                            .font(AviaryFont.mono(12, weight: .semibold))
+                            .foregroundStyle(t.accent)
+                    }
+                    .padding(.top, 2)
+                }
+                Spacer()
+                ZStack {
+                    Circle().fill(t.accentSoft)
+                    AviaryIcon(name: "phone", size: 18, color: t.accent)
+                }
+                .frame(width: 38, height: 38)
+                ZStack {
+                    Circle().fill(t.accentSoft)
+                    AviaryIcon(name: "message", size: 18, color: t.accent)
+                }
+                .frame(width: 38, height: 38)
+            }
+        }
+    }
+
+    private var statusTimeline: some View {
+        AviaryCard(padding: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(liveStatuses.enumerated()), id: \.0) { idx, beat in
+                    timelineRow(idx: idx, beat: beat,
+                                isFirst: idx == 0,
+                                isLast: idx == liveStatuses.count - 1)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func timelineRow(idx: Int, beat: StatusBeat, isFirst: Bool, isLast: Bool) -> some View {
+        let done = idx < liveStatusIdx
+        let active = idx == liveStatusIdx
+        HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(idx <= liveStatusIdx ? t.accent : t.line)
+                    .frame(width: 2, height: 10)
+                    .opacity(isFirst ? 0 : 1)
+                ZStack {
+                    Circle()
+                        .fill(done ? t.accent : (active ? t.accentSoft : t.surface2))
+                        .frame(width: 18, height: 18)
+                    if done {
+                        AviaryIcon(name: "check", size: 11, stroke: 3, color: t.accentInk)
+                    } else if active {
+                        Circle().fill(t.accent).frame(width: 8, height: 8)
+                    }
+                }
+                Rectangle()
+                    .fill(idx < liveStatusIdx ? t.accent : t.line)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+                    .opacity(isLast ? 0 : 1)
+            }
+            .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(beat.label)
+                    .font(AviaryFont.body(14, weight: active ? .semibold : .medium))
+                    .foregroundStyle(active ? t.ink : (done ? t.ink2 : t.ink4))
+                Text(beat.detail)
+                    .font(AviaryFont.body(12))
+                    .foregroundStyle(active ? t.ink3 : t.ink4)
+            }
+            .padding(.top, 9)
+            .padding(.bottom, isLast ? 0 : 16)
+            Spacer()
+            if active {
+                Text("now")
+                    .font(AviaryFont.mono(11, weight: .semibold))
+                    .foregroundStyle(t.accent)
+                    .padding(.top, 11)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: liveStatusIdx)
+    }
+
+    private func startLiveStatusIfNeeded() {
+        guard demoStore.isOn,
+              demoStore.showcaseStep == .customerJobDetail,
+              showsLiveTimeline else { return }
+        statusTask?.cancel()
+        liveStatusIdx = 0
+        liveEtaMinutes = 22
+        statusTask = Task { @MainActor in
+            do {
+                // Walk through the timeline beats so the viewer sees each status arrive.
+                let beatDelays: [UInt64] = [
+                    900_000_000,   // Pilot accepted → en route
+                    1_000_000_000, // en route → on site
+                    1_000_000_000, // on site → filming
+                    900_000_000    // filming → wrapping up
+                ]
+                for delay in beatDelays {
+                    try await Task.sleep(nanoseconds: delay)
+                    guard demoStore.showcaseStep == .customerJobDetail else { return }
+                    if liveStatusIdx + 1 < liveStatuses.count {
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            liveStatusIdx += 1
+                            liveEtaMinutes = max(0, liveEtaMinutes - 6)
+                        }
+                    }
+                }
+            } catch {
+                return
             }
         }
     }

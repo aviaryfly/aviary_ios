@@ -1469,6 +1469,9 @@ struct ClientRequestScreen: View {
             (t.mapBg.opacity(0.42).blendMode(.multiply)).allowsHitTesting(false)
         )
         .onChange(of: typeIdx) { _, _ in
+            // In demo mode, keep the map locked on the first job type's location so the
+            // map doesn't jump around while the type picker auto-cycles.
+            guard !demoStore.isOn else { return }
             withAnimation(.easeInOut(duration: 0.5)) {
                 camera = .region(MKCoordinateRegion(
                     center: selected.coordinate,

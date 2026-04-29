@@ -9,6 +9,7 @@ struct WeatherBriefingScreen: View {
 
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var demoStore: DemoModeStore
 
     @State private var currentBriefing: AviationBriefing?
     @State private var missionBriefing: AviationBriefing?
@@ -173,6 +174,15 @@ struct WeatherBriefingScreen: View {
 
         currentError = nil
         missionError = nil
+
+        // In demo mode, serve canned METAR/TAF instead of hitting the network so
+        // the demo doesn't depend on connectivity.
+        if demoStore.isOn {
+            currentBriefing = DemoWeatherBriefings.currentLocation
+            missionBriefing = DemoWeatherBriefings.mission(label: missionDisplayName)
+            lastRefreshed = Date()
+            return
+        }
 
         async let current = loadCurrent()
         async let mission = loadMission()

@@ -63,9 +63,11 @@ enum DemoShowcaseStep: String, CaseIterable, Identifiable {
     // Customer
     case customerHome
     case customerPostJob
+    case customerMatching
     case customerMyJobs
     case customerJobDetail
     case customerMessages
+    case customerRate
     case customerProfile
 
     var id: String { rawValue }
@@ -88,13 +90,16 @@ enum DemoShowcaseStep: String, CaseIterable, Identifiable {
         .pilotEarnings
     ]
 
-    /// Customer script — narrative flow: home → post job → track → message pilot → profile.
+    /// Customer script — Uber-style narrative: home → post job → match a pilot →
+    /// see live status → message → rate the pilot → profile.
     static let customerScript: [DemoShowcaseStep] = [
         .customerHome,
         .customerPostJob,
+        .customerMatching,
         .customerMyJobs,
         .customerJobDetail,
         .customerMessages,
+        .customerRate,
         .customerProfile
     ]
 
@@ -105,8 +110,8 @@ enum DemoShowcaseStep: String, CaseIterable, Identifiable {
              .pilotWeather, .pilotDeliverables, .pilotReview, .pilotMessages,
              .pilotProfile, .pilotEarnings:
             return .pilot
-        case .customerHome, .customerPostJob, .customerMyJobs, .customerJobDetail,
-             .customerMessages, .customerProfile:
+        case .customerHome, .customerPostJob, .customerMatching, .customerMyJobs,
+             .customerJobDetail, .customerMessages, .customerRate, .customerProfile:
             return .customer
         }
     }
@@ -132,9 +137,11 @@ enum DemoShowcaseStep: String, CaseIterable, Identifiable {
         // Customer
         case .customerHome:      return 3.0
         case .customerPostJob:   return 6.0  // type cycle + auto-post
+        case .customerMatching:  return 5.5  // "finding your pilot" → pilot found
         case .customerMyJobs:    return 4.5  // filter + scroll
-        case .customerJobDetail: return 3.5
+        case .customerJobDetail: return 5.5  // pilot card + animated status timeline
         case .customerMessages:  return 6.5  // open + auto-type + auto-send
+        case .customerRate:      return 5.0  // stars + tags + tip + submit
         case .customerProfile:   return 3.0
         }
     }
@@ -157,9 +164,11 @@ enum DemoShowcaseStep: String, CaseIterable, Identifiable {
         case .pilotEarnings: return "Earnings"
         case .customerHome: return "Customer home"
         case .customerPostJob: return "Post a job"
+        case .customerMatching: return "Finding a pilot"
         case .customerMyJobs: return "My jobs"
-        case .customerJobDetail: return "Job details"
+        case .customerJobDetail: return "Live status"
         case .customerMessages: return "Customer messages"
+        case .customerRate: return "Rate the pilot"
         case .customerProfile: return "Customer profile"
         }
     }
@@ -198,12 +207,16 @@ enum DemoShowcaseStep: String, CaseIterable, Identifiable {
             return "Recent activity and post a job"
         case .customerPostJob:
             return "Pick a job type and post"
+        case .customerMatching:
+            return "Searching for nearby pilots…"
         case .customerMyJobs:
             return "Open and completed jobs"
         case .customerJobDetail:
-            return "Pilot, payout, deliverables"
+            return "Pilot info, ETA, live status"
         case .customerMessages:
             return "Type a message to the pilot"
+        case .customerRate:
+            return "Stars, tags, optional tip"
         case .customerProfile:
             return "Billing, addresses, settings"
         }
