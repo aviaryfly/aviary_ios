@@ -1,3 +1,5 @@
+import CoreLocation
+import MapKit
 import PhotosUI
 import SwiftUI
 
@@ -1203,6 +1205,7 @@ struct ClientRequestScreen: View {
         let estimateText: String
         let payoutCents: Int
         let distanceMiles: Double
+        let coordinate: CLLocationCoordinate2D
     }
 
     private let types: [GigType] = [
@@ -1212,35 +1215,44 @@ struct ClientRequestScreen: View {
                 scheduledHoursFromNow: 3, durationMinutes: 45,
                 deliverablesSummary: "12 photos + 60s flyover",
                 deliverables: ["12 exterior photos", "60-sec cinematic flyover", "Edited delivery set"],
-                estimateText: "$320–$380", payoutCents: 35000, distanceMiles: 1.2),
+                estimateText: "$320–$380", payoutCents: 35000, distanceMiles: 1.2,
+                coordinate: CLLocationCoordinate2D(latitude: 37.8814, longitude: -122.2683)),
         GigType(label: "Inspection", icon: "cert",
                 address: "88 Industrial Way, Oakland",
                 scheduleText: "Tomorrow, 10:00 AM",
                 scheduledHoursFromNow: 22, durationMinutes: 30,
                 deliverablesSummary: "Roof scan + thermal pass",
                 deliverables: ["Tight roof orbit (4K)", "Thermal pass + damage call-outs", "PDF report"],
-                estimateText: "$420–$480", payoutCents: 45000, distanceMiles: 6.4),
+                estimateText: "$420–$480", payoutCents: 45000, distanceMiles: 6.4,
+                coordinate: CLLocationCoordinate2D(latitude: 37.7942, longitude: -122.2510)),
         GigType(label: "Event", icon: "star",
                 address: "Tilden Park, Berkeley",
                 scheduleText: "Saturday, 4:00 PM",
                 scheduledHoursFromNow: 52, durationMinutes: 120,
                 deliverablesSummary: "90s aerial reel + stills",
                 deliverables: ["Ceremony aerial coverage", "Cinematic flyover", "60-sec highlight reel"],
-                estimateText: "$560–$640", payoutCents: 60000, distanceMiles: 3.1),
+                estimateText: "$560–$640", payoutCents: 60000, distanceMiles: 3.1,
+                coordinate: CLLocationCoordinate2D(latitude: 37.8956, longitude: -122.2429)),
         GigType(label: "Mapping", icon: "altitude",
                 address: "Stags Leap District, Napa",
                 scheduleText: "Friday, 8:00 AM",
                 scheduledHoursFromNow: 40, durationMinutes: 240,
                 deliverablesSummary: "12-acre orthomosaic",
                 deliverables: ["Orthomosaic at 2 cm/px", "NDVI multispectral map", "Boundary KML"],
-                estimateText: "$780–$880", payoutCents: 83000, distanceMiles: 42.0)
+                estimateText: "$780–$880", payoutCents: 83000, distanceMiles: 42.0,
+                coordinate: CLLocationCoordinate2D(latitude: 38.4090, longitude: -122.3206))
     ]
+
+    @State private var camera: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 37.8814, longitude: -122.2683),
+        latitudinalMeters: 1400, longitudinalMeters: 1400
+    ))
 
     var body: some View {
         ZStack(alignment: .top) {
             t.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                MapBackground(pins: [.init(x: 195, y: 140, label: "📍")])
+                postJobMap
                     .frame(height: 280)
 
                 ScrollView {
@@ -1322,6 +1334,38 @@ struct ClientRequestScreen: View {
     }
 
     private var selected: GigType { types[typeIdx] }
+
+    private var postJobMap: some View {
+        Map(position: $camera) {
+            Annotation(selected.label, coordinate: selected.coordinate, anchor: .bottom) {
+                ZStack {
+                    Circle().fill(t.accent.opacity(0.16)).frame(width: 56, height: 56)
+                    Circle().fill(t.accent.opacity(0.28)).frame(width: 36, height: 36)
+                    Capsule()
+                        .fill(t.accent)
+                        .frame(width: max(40, CGFloat(selected.estimateText.count) * 7 + 18), height: 26)
+                        .overlay(Capsule().strokeBorder(.white, lineWidth: 2))
+                        .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+                    Text(selected.estimateText)
+                        .font(AviaryFont.body(11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
+        .mapControls { }
+        .overlay(
+            (t.mapBg.opacity(0.42).blendMode(.multiply)).allowsHitTesting(false)
+        )
+        .onChange(of: typeIdx) { _, _ in
+            withAnimation(.easeInOut(duration: 0.5)) {
+                camera = .region(MKCoordinateRegion(
+                    center: selected.coordinate,
+                    latitudinalMeters: 1400, longitudinalMeters: 1400
+                ))
+            }
+        }
+    }
 
     private func postGig() {
         guard !isPosting else { return }

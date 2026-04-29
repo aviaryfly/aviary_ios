@@ -75,15 +75,28 @@ struct PilotRootView: View {
     let profile: UserProfile
     @Environment(\.theme) private var t
     @EnvironmentObject private var demoStore: DemoModeStore
-    @State private var tab: PilotTab = .home
+    @State private var tab: PilotTab
 
-    @State private var showAcceptPing: Bool = false
-    @State private var showGigDetail: Bool = false
-    @State private var showInFlight: Bool = false
+    @State private var showAcceptPing: Bool
+    @State private var showGigDetail: Bool
+    @State private var showInFlight: Bool
     @State private var showMessages: Bool = false
-    @State private var showNearbyGigsMap: Bool = false
+    @State private var showNearbyGigsMap: Bool
     @State private var selectedGig: AviaryJob?
     @State private var selectedDemoGig: DemoGig?
+
+    init(themeManager: ThemeManager, profile: UserProfile) {
+        self.themeManager = themeManager
+        self.profile = profile
+        let env = ProcessInfo.processInfo.environment
+        let initialTab = env["AVIARY_DEMO_TAB"].flatMap(PilotTab.init(rawValue:)) ?? .home
+        let sheet = env["AVIARY_DEMO_SHEET"]
+        _tab = State(initialValue: initialTab)
+        _showAcceptPing = State(initialValue: sheet == "heroFlow")
+        _showGigDetail = State(initialValue: sheet == "gigDetail")
+        _showInFlight = State(initialValue: sheet == "inFlight")
+        _showNearbyGigsMap = State(initialValue: sheet == "nearbyMap")
+    }
 
     var body: some View {
         Group {
@@ -177,8 +190,16 @@ struct CustomerRootView: View {
     @ObservedObject var themeManager: ThemeManager
     let profile: UserProfile
     @Environment(\.theme) private var t
-    @State private var tab: CustomerTab = .home
+    @State private var tab: CustomerTab
     @State private var showMessages: Bool = false
+
+    init(themeManager: ThemeManager, profile: UserProfile) {
+        self.themeManager = themeManager
+        self.profile = profile
+        let env = ProcessInfo.processInfo.environment
+        let initialTab = env["AVIARY_DEMO_TAB"].flatMap(CustomerTab.init(rawValue:)) ?? .home
+        _tab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         Group {
