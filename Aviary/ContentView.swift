@@ -256,7 +256,7 @@ struct FlyHubScreen: View {
                     PageHeader(title: "Fly",
                                subtitle: demoStore.isOn
                                    ? "Active gig · Real estate · 1247 Vine St"
-                                   : "No active gig")
+                                   : nil)
 
                     if demoStore.isOn {
                         activeMissionCard(job: nil)
@@ -397,7 +397,7 @@ struct FlyHubScreen: View {
                     Chip(text: "NO ACTIVE GIG", style: .neutral)
                     Spacer()
                 }
-                Text("No active gig")
+                Text("Ready to fly?")
                     .font(AviaryFont.display(22, weight: .bold))
                     .tracking(-0.02 * 22)
                     .foregroundStyle(t.ink)
